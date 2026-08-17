@@ -1,0 +1,58 @@
+name: Produce daily Short
+on:
+  schedule:
+    - cron: "30 8 * * *"   # daily 08:30 UTC -> scheduled to 17:00 ET slot
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no upload)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: produce
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-liberation
+          pip install -r requirements.txt
+          python -m playwright install chromium --with-deps
+      - name: Fetch fonts & music
+        run: bash scripts/fetch_assets.sh
+      - name: Produce & upload
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          python run.py short ${{ inputs.dry_run == true && '--dry-run' || '' }}
+      - name: Persist state
+        run: |
+          git config user.name "actually-checked-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add state/ || true
+          git diff --cached --quiet || git commit -m "state: short run $(date -u +%F)"
+          git push || true
+      - name: Save video artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: short-${{ github.run_id }}
+          path: |
+            work/*/final_short*.mp4
+            work/*/script_short.json
+          retention-days: 7
