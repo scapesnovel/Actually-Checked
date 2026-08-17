@@ -1,0 +1,88 @@
+# ============================================================
+# ACTUALLY CHECKED — channel configuration
+# "You asked. We checked. Here's the proof."
+# ============================================================
+channel:
+  name: "Actually Checked"
+  handle: "@ActuallyChecked"
+  tagline: "You asked. We checked. Here's the proof."
+  language: "en"
+  target_market: "US/global"
+  voice_style: "casual smart friend"   # shapes script tone
+
+# Content pillars — rotated by the topic engine, weighted by
+# the analyst module as performance data accumulates.
+pillars:
+  - id: money
+    label: "Money methods checked"
+    weight: 0.34
+    seed_queries:
+      - "does * actually pay"
+      - "is * legit way to make money"
+      - "* app payment proof"
+      - "make money with * real or fake"
+      - "* passive income actually work"
+  - id: scam
+    label: "Apps & sites: legit or scam"
+    weight: 0.33
+    seed_queries:
+      - "is * a scam"
+      - "is * legit"
+      - "* app review scam"
+      - "* website safe or not"
+      - "should i trust *"
+  - id: viral
+    label: "Viral claims debunked"
+    weight: 0.33
+    seed_queries:
+      - "is * real or fake"
+      - "does * actually work"
+      - "* trick actually works"
+      - "* hack real"
+      - "truth about *"
+
+schedule:
+  # Times in America/New_York (peak US engagement windows).
+  # Long-form: Tue/Thu/Sat/Sun 14:00 ET (research niche peaks
+  # early-afternoon ET = evening EU + lunch US).
+  longform_days: ["TUE", "THU", "SAT", "SUN"]
+  longform_publish_hour_et: 14
+  # Shorts: daily 17:00 ET (commute/evening scroll).
+  shorts_publish_hour_et: 17
+
+video:
+  long:
+    target_minutes_min: 8
+    target_minutes_max: 12
+    resolution: [1920, 1080]
+  short:
+    target_seconds_min: 30
+    target_seconds_max: 50
+    resolution: [1080, 1920]
+  fps: 30
+  voice: "en-US-AndrewMultilingualNeural"   # warm, casual male; alt: en-US-BrianNeural
+  voice_rate: "+8%"                          # slightly brisk = better retention
+  music_volume_db: -24
+  duck_threshold: 0.05
+
+safety:
+  # Monetization-safety rails enforced by scriptwriter + publisher
+  banned_words_in_title: ["kill", "dead", "gun", "drugs", "porn", "sex"]
+  never_claim_without_source: true
+  always_add_sources_to_description: true
+  disclaimer: >
+    This video is for education and consumer awareness. We independently
+    research publicly available information. Nothing here is financial advice.
+  # Never publish accusations as fact — verdicts use evidence language:
+  verdict_language: ["red flags we found", "based on the evidence", "we couldn't verify"]
+
+seo:
+  tags_base: ["actually checked", "is it legit", "scam check", "does it work",
+              "real or fake", "money apps", "app review", "fact check"]
+  description_footer: |
+    🔎 We research so you don't have to. Sources for everything are above.
+    💬 Used this yourself? Share your real experience in the comments — smooth
+    or terrible, real stories help everyone.
+    👇 Got something you want us to check next? Drop it in the comments.
+    ✅ Subscribe for real answers with real proof: new checks every week.
+    ⚠️ {disclaimer}

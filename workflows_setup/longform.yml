@@ -1,0 +1,61 @@
+name: Produce long-form video
+on:
+  schedule:
+    # Runs Mon/Wed/Fri/Sat 06:00 UTC — produces & schedules the video for the
+    # NEXT configured Tue/Thu/Sat/Sun 14:00 ET slot (publisher handles timing).
+    - cron: "0 6 * * 1,3,5,6"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no upload)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: produce
+  cancel-in-progress: false
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-liberation
+          pip install -r requirements.txt
+          python -m playwright install chromium --with-deps
+      - name: Fetch fonts & music (cached free assets)
+        run: bash scripts/fetch_assets.sh
+      - name: Produce & upload
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          python run.py long ${{ inputs.dry_run == true && '--dry-run' || '' }}
+      - name: Persist state (covered topics, uploads)
+        run: |
+          git config user.name "actually-checked-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add state/ || true
+          git diff --cached --quiet || git commit -m "state: long-form run $(date -u +%F)"
+          git push || true
+      - name: Save video artifact (7-day review window)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: longform-${{ github.run_id }}
+          path: |
+            work/*/final_long*.mp4
+            work/*/thumbnail.jpg
+            work/*/script_long.json
+          retention-days: 7

@@ -1,0 +1,9 @@
+requests>=2.31
+pyyaml>=6.0
+edge-tts>=6.1.10
+faster-whisper>=1.0.0
+pillow>=10.0
+playwright>=1.44
+google-api-python-client>=2.120
+google-auth>=2.29
+google-auth-oauthlib>=1.2
