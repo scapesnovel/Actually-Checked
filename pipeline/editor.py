@@ -172,14 +172,16 @@ def frame_screenshot(shot_path: str, out_path: Path, size):
 
 
 def frame_screenshot_scroll(shot_path: str, out_path: Path, size,
-                            source: str | None = None):
+                            source: str | None = None, zoom: bool = False):
     """Tall 'scroll strip': the FULL screenshot in a browser frame, taller
     than the video. The editor pans down it = looks like real scrolling
     through reviews/comments. Adds a source badge (e.g. TRUSTPILOT.COM).
-    Returns the strip height so the caller can compute the pan."""
+    zoom=True builds the strip WIDER than the frame (magnified) so the
+    editor can pan across details — nothing gets cropped out, the camera
+    just travels over it. Returns (strip_width, strip_height)."""
     W, H = size
     shot = Image.open(shot_path).convert("RGB")
-    target_w = int(W * 0.92)
+    target_w = int(W * (1.45 if zoom else 0.92))
     shot = shot.resize((target_w, int(shot.height * target_w / shot.width)),
                        Image.LANCZOS)
     # keep it readable: strip 1.2x..3x of the video height
@@ -187,18 +189,19 @@ def frame_screenshot_scroll(shot_path: str, out_path: Path, size,
     if shot.height > max_strip:
         shot = shot.crop((0, 0, shot.width, max_strip))
     bar_h = int(H * 0.045)
-    frame = Image.new("RGB", (W, shot.height + bar_h + int(H * 0.06)), BRAND_BG)
+    fw = max(W, shot.width)
+    frame = Image.new("RGB", (fw, shot.height + bar_h + int(H * 0.06)), BRAND_BG)
     # browser chrome bar
     chrome = Image.new("RGB", (shot.width, bar_h), (40, 44, 52))
     dr = ImageDraw.Draw(chrome)
     for i, col in enumerate([(255, 95, 86), (255, 189, 46), (39, 201, 63)]):
         dr.ellipse([18 + i * 34, bar_h // 2 - 9, 36 + i * 34, bar_h // 2 + 9],
                    fill=col)
-    x = (W - shot.width) // 2
+    x = (fw - shot.width) // 2
     frame.paste(chrome, (x, int(H * 0.03)))
     frame.paste(shot, (x, int(H * 0.03) + bar_h))
     frame.save(out_path)
-    return frame.height
+    return frame.width, frame.height
 
 
 def make_source_badge(source: str, out_path: Path, size):
@@ -311,10 +314,13 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
             shot_path = meta["path"] if isinstance(meta, dict) else meta
             source = (meta.get("source") if isinstance(meta, dict) else None)
             strip = seg_dir / f"strip_{i:03d}.png"
-            strip_h = frame_screenshot_scroll(shot_path, strip, size, source)
+            zoomed = bool(seg.get("zoom"))
+            strip_w, strip_h = frame_screenshot_scroll(shot_path, strip, size,
+                                                       source, zoom=zoomed)
             if strip_h > H * 1.15:   # tall enough to scroll through
-                evidence = {"strip": strip, "strip_h": strip_h,
-                            "source": source}
+                evidence = {"strip": strip, "strip_w": strip_w,
+                            "strip_h": strip_h, "source": source,
+                            "zoom": zoomed}
             else:                    # short page -> classic framed still
                 src_img = seg_dir / f"shot_{i:03d}.png"
                 frame_screenshot(shot_path, src_img, size)
@@ -368,13 +374,22 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
         # SCROLLING PROOF: slow pan down the tall screenshot strip, pause
         # at the top first so viewers orient, then glide through content
         strip_h = evidence["strip_h"]
+        strip_w = evidence.get("strip_w", W)
         scroll_range = max(1, strip_h - H)
         hold = min(1.2, dur * 0.2)   # initial hold before scrolling starts
         yexpr = (f"min({scroll_range},"
                  f"max(0,(t-{hold:.2f}))*{scroll_range}/{max(0.5, dur - hold - 0.4):.2f})")
-        vf = f"crop={W}:{H}:0:'{yexpr}',setsar=1{vf_extra}"
+        # zoom mode: strip is WIDER than the frame (magnified) -> pan
+        # horizontally too (left->right->left) so no detail is ever lost
+        if strip_w > W + 4:
+            xr = strip_w - W
+            xexpr = f"({xr}/2)*(1-cos(2*PI*t/{max(4.0, dur):.2f}))"
+            vf = f"crop={W}:{H}:'{xexpr}':'{yexpr}',setsar=1{vf_extra}"
+        else:
+            vf = f"crop={W}:{H}:0:'{yexpr}',setsar=1{vf_extra}"
         _run(["ffmpeg", "-y", "-loop", "1", "-i", str(evidence["strip"]),
               "-i", str(audio), "-t", f"{dur:.3f}", "-vf", vf,
+              "-af", "apad",   # pad audio to video length = NO cumulative drift
               "-map", "0:v", "-map", "1:a", "-r", "30",
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
               "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
@@ -384,6 +399,7 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
               f"crop={W}:{H},setsar=1{vf_extra}")
         _run(["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(src_vid),
               "-i", str(audio), "-t", f"{dur:.3f}", "-vf", vf,
+              "-af", "apad",
               "-map", "0:v", "-map", "1:a", "-r", "30",
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
               "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
@@ -391,7 +407,8 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
     else:
         _run(["ffmpeg", "-y", "-loop", "1", "-i", str(src_img),
               "-i", str(audio), "-t", f"{dur:.3f}",
-              "-vf", kb + vf_extra, "-map", "0:v", "-map", "1:a",
+              "-vf", kb + vf_extra, "-af", "apad",
+              "-map", "0:v", "-map", "1:a",
               "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
               "-crf", "21", "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
               "-pix_fmt", "yuv420p", str(out)])
@@ -402,8 +419,13 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
     #    word is spoken (word-level whisper timing), visible ~1.4s
     overlays = []   # (emoji, appear_time, lifetime, mode)
     emoji = seg.get("emoji")
-    if emoji and evidence is None:   # keep evidence segments clean
+    if emoji and evidence is None:
         overlays.append((emoji, min(0.6, dur * 0.25), None, "corner"))
+    elif emoji and evidence is not None:
+        # evidence segments STILL get the reaction — but small + pinned
+        # top-LEFT (badge owns top-right, captions own the bottom) so the
+        # proof is never blocked
+        overlays.append((emoji, min(0.6, dur * 0.25), None, "evidence"))
     if evidence and evidence.get("source"):
         # SOURCE badge pinned top-right on proof segments = instant trust
         badge = seg_dir / f"badge_{i:03d}.png"
@@ -440,13 +462,20 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
         idx = 1
         ok = True
         for n, (em, t0, life, mode) in enumerate(overlays):
-            px = int(H * (0.22 if mode == "corner" else 0.16))
+            px = int(H * (0.22 if mode == "corner" else
+                          0.085 if mode == "evidence" else 0.16))
             stk = seg_dir / f"emoji_{i:03d}_{n}.png"
             if not make_emoji_sticker(em, stk, px=px):
                 ok = False
                 continue
             inputs += ["-loop", "1", "-i", str(stk)]
-            if mode == "corner":
+            if mode == "evidence":
+                # small wobbling reaction, top-left, clear of badge/captions
+                xpos = f"{int(W*0.035)}"
+                ybase = int(H * 0.025)
+                ypos = f"{ybase}+{int(H*0.012)}*abs(sin(2*PI*(t-{t0:.2f})*1.4))"
+                enable = f"gte(t,{t0:.2f})"
+            elif mode == "corner":
                 # portrait layout: title 0.10-0.38H, captions (up to 2 lines)
                 # 0.37-0.63H, subject chip 0.94H -> only safe band is
                 # 0.64-0.92H. Corner reaction pinned RIGHT side there;
