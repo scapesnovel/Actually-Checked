@@ -98,33 +98,58 @@ def domain_age(url: str) -> dict | None:
     return None
 
 
-def screenshot_pages(subject: str, site: str | None, topic_slug: str) -> list[dict]:
-    """Playwright headless screenshots — the visual proof used in the video."""
+def screenshot_pages(subject: str, site: str | None, topic_slug: str,
+                     reddit_urls: list | None = None) -> list[dict]:
+    """Playwright headless screenshots — the visual proof used in the video.
+    Captures TALL (multi-viewport) screenshots so the editor can slowly
+    SCROLL through them on screen (reviews, comments, search results).
+    Each shot carries a `source` label shown as an on-screen badge."""
     shots = []
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         return shots
-    targets = []
+    targets = []  # (name, url, source_badge, scrollable)
     if site:
-        targets.append(("official_site", site))
-    targets.append(("google_results",
-                    f"https://www.bing.com/search?q={quote_plus(subject + ' reviews scam')}"))
+        host = urlparse(site).netloc.replace("www.", "").upper()
+        targets.append(("official_site", site, host, True))
     targets.append(("trustpilot",
-                    f"https://www.trustpilot.com/search?query={quote_plus(subject)}"))
+                    f"https://www.trustpilot.com/search?query={quote_plus(subject)}",
+                    "TRUSTPILOT.COM", True))
+    targets.append(("search_results",
+                    f"https://www.bing.com/search?q={quote_plus(subject + ' reviews scam')}",
+                    "WEB SEARCH", True))
+    # real Reddit threads = the strongest trust evidence (user comments)
+    for j, rurl in enumerate((reddit_urls or [])[:2]):
+        old = rurl.replace("www.reddit.com", "old.reddit.com")
+        targets.append((f"reddit_{j}", old, "REDDIT", True))
     d = _shots_dir(topic_slug)
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
-        page = browser.new_page(viewport={"width": 1600, "height": 900},
+        page = browser.new_page(viewport={"width": 1440, "height": 900},
                                 user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                                             "AppleWebKit/537.36 Chrome/126.0 Safari/537.36"))
-        for name, url in targets:
+        for name, url, badge, scrollable in targets:
             try:
                 page.goto(url, timeout=35000, wait_until="domcontentloaded")
                 page.wait_for_timeout(3500)
+                # nudge lazy content to load before the tall capture
+                for _ in range(3):
+                    page.mouse.wheel(0, 900)
+                    page.wait_for_timeout(600)
+                page.evaluate("window.scrollTo(0, 0)")
+                page.wait_for_timeout(400)
                 path = d / f"{name}.png"
-                page.screenshot(path=str(path), full_page=False)
-                shots.append({"name": name, "url": url, "path": str(path)})
+                try:  # tall capture (capped ~4 viewports) for the scroll effect
+                    page.screenshot(path=str(path), full_page=True)
+                    from PIL import Image as _Im
+                    im = _Im.open(path)
+                    if im.height > 3600:
+                        im.crop((0, 0, im.width, 3600)).save(path)
+                except Exception:
+                    page.screenshot(path=str(path), full_page=False)
+                shots.append({"name": name, "url": url, "path": str(path),
+                              "source": badge, "scrollable": scrollable})
             except Exception:
                 continue
         browser.close()
@@ -144,8 +169,11 @@ def investigate(topic: dict) -> dict:
         "domain_info": domain_age(site) if site else None,
         "search_results": ddg_results(f'{subject} review scam complaints'),
         "search_results_2": ddg_results(f'{subject} payment proof OR "does it work"'),
+        "search_results_trustpilot": ddg_results(f'{subject} site:trustpilot.com'),
+        "search_results_bbb": ddg_results(f'{subject} site:bbb.org OR site:sitejabber.com'),
         "reddit_evidence": reddit_thread_evidence(topic.get("reddit_urls", [])),
-        "screenshots": screenshot_pages(subject, site, slug),
+        "screenshots": screenshot_pages(subject, site, slug,
+                                        topic.get("reddit_urls", [])),
         "collected_at": time.strftime("%Y-%m-%d"),
     }
 

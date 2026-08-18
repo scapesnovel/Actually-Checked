@@ -171,14 +171,77 @@ def frame_screenshot(shot_path: str, out_path: Path, size):
     bg.save(out_path)
 
 
+def frame_screenshot_scroll(shot_path: str, out_path: Path, size,
+                            source: str | None = None):
+    """Tall 'scroll strip': the FULL screenshot in a browser frame, taller
+    than the video. The editor pans down it = looks like real scrolling
+    through reviews/comments. Adds a source badge (e.g. TRUSTPILOT.COM).
+    Returns the strip height so the caller can compute the pan."""
+    W, H = size
+    shot = Image.open(shot_path).convert("RGB")
+    target_w = int(W * 0.92)
+    shot = shot.resize((target_w, int(shot.height * target_w / shot.width)),
+                       Image.LANCZOS)
+    # keep it readable: strip 1.2x..3x of the video height
+    max_strip = int(H * 3.0)
+    if shot.height > max_strip:
+        shot = shot.crop((0, 0, shot.width, max_strip))
+    bar_h = int(H * 0.045)
+    frame = Image.new("RGB", (W, shot.height + bar_h + int(H * 0.06)), BRAND_BG)
+    # browser chrome bar
+    chrome = Image.new("RGB", (shot.width, bar_h), (40, 44, 52))
+    dr = ImageDraw.Draw(chrome)
+    for i, col in enumerate([(255, 95, 86), (255, 189, 46), (39, 201, 63)]):
+        dr.ellipse([18 + i * 34, bar_h // 2 - 9, 36 + i * 34, bar_h // 2 + 9],
+                   fill=col)
+    x = (W - shot.width) // 2
+    frame.paste(chrome, (x, int(H * 0.03)))
+    frame.paste(shot, (x, int(H * 0.03) + bar_h))
+    frame.save(out_path)
+    return frame.height
+
+
+def make_source_badge(source: str, out_path: Path, size):
+    """'SOURCE: TRUSTPILOT.COM' pill badge overlaid on evidence segments."""
+    W, H = size
+    fs = int(H * 0.026)
+    try:
+        f = ImageFont.truetype(str(FONT_BOLD), fs)
+    except Exception:
+        f = ImageFont.load_default()
+    txt = f"SOURCE: {source.upper()}"
+    tmp = Image.new("RGBA", (10, 10))
+    tw = int(ImageDraw.Draw(tmp).textlength(txt, font=f))
+    pad = int(fs * 0.7)
+    im = Image.new("RGBA", (tw + pad * 2 + fs, fs + pad), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle([0, 0, im.width - 1, im.height - 1],
+                        radius=im.height // 2, fill=(0, 0, 0, 200),
+                        outline=BRAND_ACCENT + (255,), width=3)
+    # camera dot = "receipt" feel
+    d.ellipse([pad * 0.7, im.height / 2 - fs * 0.28,
+               pad * 0.7 + fs * 0.56, im.height / 2 + fs * 0.28],
+              fill=(255, 70, 70, 255))
+    d.text((pad * 0.9 + fs * 0.7, pad // 2 - 2), txt, font=f,
+           fill=(255, 255, 255, 255))
+    im.save(out_path)
+
+
 def make_ass_captions(words: list[dict], seg_dur: float, out_path: Path,
-                      size, portrait: bool):
-    """HUGE center-screen captions, title-sized. Per-word color coding
+                      size, portrait: bool, position: str = "center"):
+    """HUGE captions, title-sized. Per-word color coding
     (green=money/positive, red=scam/warning, yellow=hype), keyword words
     rendered bigger, karaoke highlight, pop-in scale animation.
-    Alignment 5 = dead center of the frame; the punch title sits top."""
+    position='center' (default) = Alignment 5 dead-center;
+    position='bottom' = Alignment 2 + smaller, used on EVIDENCE segments so
+    the screenshot/proof stays fully readable."""
     W, H = size
-    fs = int(H * 0.125)          # BIGGER than title — captions own the screen
+    if position == "bottom":
+        fs = int(H * 0.062)      # smaller — evidence owns the screen
+        align, marginv = 2, int(H * 0.055)
+    else:
+        fs = int(H * 0.125)      # BIGGER than title — captions own the screen
+        align, marginv = 5, 0
     fs_key = int(fs * 1.25)      # emphasized keywords even bigger
     header = f"""[Script Info]
 PlayResX: {W}
@@ -186,7 +249,7 @@ PlayResY: {H}
 WrapStyle: 1
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, BorderStyle
-Style: Cap,Anton,{fs},&H00FFFFFF,&H00B8B8B8,&H00000000,&H96000000,-1,{max(4, fs // 14)},3,5,40,40,0,1
+Style: Cap,Anton,{fs},&H00FFFFFF,&H00B8B8B8,&H00000000,&H96000000,-1,{max(4, fs // 14)},3,{align},40,40,{marginv},1
 [Events]
 Format: Layer, Start, End, Style, Text
 """
@@ -235,11 +298,22 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
     src_img = None
     src_vid = None
 
+    evidence = None          # dict -> scrolling proof segment
     if visual.startswith("screenshot:"):
         name = visual.split(":", 1)[1]
         if name in shots:
-            src_img = seg_dir / f"shot_{i:03d}.png"
-            frame_screenshot(shots[name], src_img, size)
+            meta = shots[name]
+            shot_path = meta["path"] if isinstance(meta, dict) else meta
+            source = (meta.get("source") if isinstance(meta, dict) else None)
+            strip = seg_dir / f"strip_{i:03d}.png"
+            strip_h = frame_screenshot_scroll(shot_path, strip, size, source)
+            if strip_h > H * 1.15:   # tall enough to scroll through
+                evidence = {"strip": strip, "strip_h": strip_h,
+                            "source": source}
+            else:                    # short page -> classic framed still
+                src_img = seg_dir / f"shot_{i:03d}.png"
+                frame_screenshot(shot_path, src_img, size)
+                evidence = {"still": True, "source": source}
     if visual == "title_card" or (src_img is None and not visual.startswith("broll")):
         src_img = seg_dir / f"card_{i:03d}.png"
         make_title_card(seg.get("onscreen_text") or "ACTUALLY CHECKED",
@@ -265,9 +339,11 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
           f"y='ih/2-(ih/zoom/2)':d={total_frames}:s={W}x{H}:fps=30")
 
     vf_extra = ""
-    # on-screen punch text (skip title cards which already contain text)
+    # on-screen punch text (skip title cards which already contain text;
+    # skip evidence segments — the proof itself is the star there)
     ost = seg.get("onscreen_text")
-    if ost and (src_vid is not None or (src_img and "card" not in src_img.name)):
+    if ost and evidence is None and (
+            src_vid is not None or (src_img and "card" not in src_img.name)):
         safe = ost.upper().replace("'", r"\\\'").replace(":", r"\:")
         y = int(H * (0.10 if portrait else 0.10))
         vf_extra = (f",drawtext=fontfile='{FONT_BOLD}':text='{safe}':"
@@ -275,13 +351,30 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
                     f"bordercolor=black:x=(w-text_w)/2:y={y}:"
                     f"enable='gte(t,0.25)'")
 
-    # captions
+    # captions — evidence segments push captions to the BOTTOM (smaller) so
+    # screenshots/reviews stay fully readable and build trust
     ass = seg_dir / f"cap_{i:03d}.ass"
     if words:
-        make_ass_captions(words, dur, ass, size, portrait)
+        make_ass_captions(words, dur, ass, size, portrait,
+                          position="bottom" if evidence else "center")
         vf_extra += f",subtitles='{ass}':fontsdir='{ASSETS / 'fonts'}'"
 
-    if src_vid is not None:
+    if evidence and evidence.get("strip"):
+        # SCROLLING PROOF: slow pan down the tall screenshot strip, pause
+        # at the top first so viewers orient, then glide through content
+        strip_h = evidence["strip_h"]
+        scroll_range = max(1, strip_h - H)
+        hold = min(1.2, dur * 0.2)   # initial hold before scrolling starts
+        yexpr = (f"min({scroll_range},"
+                 f"max(0,(t-{hold:.2f}))*{scroll_range}/{max(0.5, dur - hold - 0.4):.2f})")
+        vf = f"crop={W}:{H}:0:'{yexpr}',setsar=1{vf_extra}"
+        _run(["ffmpeg", "-y", "-loop", "1", "-i", str(evidence["strip"]),
+              "-i", str(audio), "-t", f"{dur:.3f}", "-vf", vf,
+              "-map", "0:v", "-map", "1:a", "-r", "30",
+              "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+              "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+              "-pix_fmt", "yuv420p", str(out)])
+    elif src_vid is not None:
         vf = (f"scale={W}:{H}:force_original_aspect_ratio=increase,"
               f"crop={W}:{H},setsar=1{vf_extra}")
         _run(["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(src_vid),
@@ -304,11 +397,26 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
     #    word is spoken (word-level whisper timing), visible ~1.4s
     overlays = []   # (emoji, appear_time, lifetime, mode)
     emoji = seg.get("emoji")
-    if emoji:
+    if emoji and evidence is None:   # keep evidence segments clean
         overlays.append((emoji, min(0.6, dur * 0.25), None, "corner"))
+    if evidence and evidence.get("source"):
+        # SOURCE badge pinned top-right on proof segments = instant trust
+        badge = seg_dir / f"badge_{i:03d}.png"
+        try:
+            make_source_badge(evidence["source"], badge, size)
+            badged = seg_dir / f"clip_{i:03d}_b.mp4"
+            _run(["ffmpeg", "-y", "-i", str(out), "-i", str(badge),
+                  "-filter_complex",
+                  f"[0:v][1:v]overlay=x=W-w-{int(W*0.03)}:y={int(H*0.03)}[v]",
+                  "-map", "[v]", "-map", "0:a", "-c:v", "libx264",
+                  "-preset", "veryfast", "-crf", "21", "-c:a", "copy",
+                  str(badged)])
+            shutil.move(str(badged), str(out))
+        except Exception:
+            pass
     used = set()
     kw_events = []
-    for wd in words or []:
+    for wd in (words if evidence is None else []) or []:
         wclean = "".join(ch for ch in wd["word"].lower() if ch.isalnum())
         em = KEYWORD_EMOJI.get(wclean)
         if em and em not in used and wd["start"] < dur - 0.8:
@@ -465,7 +573,7 @@ def render(slug: str, script: dict, seg_meta: list[dict],
     size = tuple(cfg["video"]["short" if portrait else "long"]["resolution"])
 
     dossier = json.loads((WORK_DIR / slug / "dossier.json").read_text(encoding="utf-8"))
-    shots = {s["name"]: s["path"] for s in dossier.get("screenshots", [])
+    shots = {s["name"]: s for s in dossier.get("screenshots", [])
              if Path(s["path"]).exists()}
 
     clips = []
