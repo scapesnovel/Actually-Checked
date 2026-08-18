@@ -56,12 +56,12 @@ video:
     target_minutes_max: 12
     resolution: [1920, 1080]
   short:
-    target_seconds_min: 30
-    target_seconds_max: 50
+    target_seconds_min: 50
+    target_seconds_max: 60
     resolution: [1080, 1920]
   fps: 30
   voice: "en-US-AndrewMultilingualNeural"   # warm, casual male; alt: en-US-BrianNeural
-  voice_rate: "+8%"                          # slightly brisk = better retention
+  voice_rate: "+2%"                          # near-natural; sentence gaps added by voice.py
   music_volume_db: -24
   duck_threshold: 0.05
 

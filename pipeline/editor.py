@@ -265,12 +265,17 @@ Format: Layer, Start, End, Style, Text
         if len(cur) == 3 or w is words[-1]:
             groups.append(cur)
             cur = []
+    # SYNC FIX: whisper word-onsets + ASS pop-in animation make captions land
+    # ~0.25-0.35s AFTER the word is heard. Lead every caption slightly so the
+    # text pops exactly when (or a hair before) the word is spoken.
+    LEAD = 0.12
     lines = []
     for gi, group in enumerate(groups):
-        start = group[0]["start"]
-        end = min(group[-1]["end"] + 0.05, seg_dur)
+        start = max(0.0, group[0]["start"] - LEAD)
+        end = min(group[-1]["end"] + 0.05 - LEAD * 0.5, seg_dur)
         if gi + 1 < len(groups):   # never overlap the next group
-            end = min(end, max(start + 0.15, groups[gi + 1][0]["start"] - 0.02))
+            end = min(end, max(start + 0.15,
+                               groups[gi + 1][0]["start"] - LEAD - 0.02))
         parts = []
         for gw in group:
             dur_cs = max(1, int((gw["end"] - gw["start"]) * 100))
@@ -279,9 +284,9 @@ Format: Layer, Start, End, Style, Text
             # karaoke fill from gray secondary to the word's color
             parts.append(r"{\k%d\1c%s%s}%s " % (dur_cs, color, size_tag,
                                                 gw["word"].upper()))
-        # pop-in scale animation for the whole group
-        txt = (r"{\fad(40,25)\fscx70\fscy70"
-               r"\t(0,110,\fscx104\fscy104)\t(110,180,\fscx100\fscy100)"
+        # pop-in scale animation for the whole group (fast = tighter sync feel)
+        txt = (r"{\fad(25,20)\fscx78\fscy78"
+               r"\t(0,70,\fscx104\fscy104)\t(70,120,\fscx100\fscy100)"
                r"\3c&H00000000&}" + "".join(parts).strip())
         lines.append(f"Dialogue: 0,{ts(start)},{ts(end)},Cap,{txt}")
     out_path.write_text(header + "\n".join(lines), encoding="utf-8")

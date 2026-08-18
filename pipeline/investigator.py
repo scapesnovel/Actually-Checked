@@ -78,6 +78,63 @@ def reddit_thread_evidence(urls: list[str]) -> list[dict]:
     return evidence
 
 
+def trustpilot_rating(subject: str, site: str | None) -> dict | None:
+    """Best-effort Trustpilot TrustScore + review count + star distribution.
+    Numbers like '2.3 TrustScore, 61% 1-star' are GOLD for the script."""
+    s = http()
+    hosts = []
+    if site:
+        hosts.append(urlparse(site).netloc.replace("www.", ""))
+    hosts.append(re.sub(r"[^a-z0-9]", "", subject.lower()) + ".com")
+    for host in hosts:
+        try:
+            r = s.get(f"https://www.trustpilot.com/review/{host}", timeout=20,
+                      headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            if r.status_code != 200:
+                continue
+            out = {"page": f"https://www.trustpilot.com/review/{host}"}
+            m = re.search(r'"aggregateRating"[^}]*"ratingValue"\s*:\s*"?([\d.]+)', r.text)
+            if m:
+                out["trust_score"] = float(m.group(1))
+            m = re.search(r'"reviewCount"\s*:\s*"?(\d+)', r.text)
+            if m:
+                out["review_count"] = int(m.group(1))
+            # star distribution percentages (5-star .. 1-star)
+            dist = re.findall(r'(\d+)%</p>', r.text)[:5]
+            if len(dist) == 5:
+                out["distribution_pct"] = {"5_star": int(dist[0]),
+                                           "4_star": int(dist[1]),
+                                           "3_star": int(dist[2]),
+                                           "2_star": int(dist[3]),
+                                           "1_star": int(dist[4])}
+            if "trust_score" in out:
+                return out
+        except Exception:
+            continue
+    return None
+
+
+def reddit_search(subject: str, n: int = 6) -> list[dict]:
+    """Free Reddit search JSON — finds threads we didn't already know about."""
+    try:
+        r = http().get("https://www.reddit.com/search.json",
+                       params={"q": f'"{subject}" (scam OR legit OR review OR payout)',
+                               "sort": "relevance", "limit": n, "t": "year"},
+                       timeout=20)
+        out = []
+        for c in r.json().get("data", {}).get("children", []):
+            d = c.get("data", {})
+            out.append({"title": d.get("title", ""),
+                        "subreddit": d.get("subreddit", ""),
+                        "score": d.get("score", 0),
+                        "num_comments": d.get("num_comments", 0),
+                        "url": "https://www.reddit.com" + d.get("permalink", ""),
+                        "selftext": (d.get("selftext") or "")[:300]})
+        return out
+    except Exception:
+        return []
+
+
 def domain_age(url: str) -> dict | None:
     """RDAP (free, official) — young domains are a classic scam red flag."""
     try:
@@ -99,7 +156,8 @@ def domain_age(url: str) -> dict | None:
 
 
 def screenshot_pages(subject: str, site: str | None, topic_slug: str,
-                     reddit_urls: list | None = None) -> list[dict]:
+                     reddit_urls: list | None = None,
+                     trustpilot_url: str | None = None) -> list[dict]:
     """Playwright headless screenshots — the visual proof used in the video.
     Captures TALL (multi-viewport) screenshots so the editor can slowly
     SCROLL through them on screen (reviews, comments, search results).
@@ -114,6 +172,7 @@ def screenshot_pages(subject: str, site: str | None, topic_slug: str,
         host = urlparse(site).netloc.replace("www.", "").upper()
         targets.append(("official_site", site, host, True))
     targets.append(("trustpilot",
+                    trustpilot_url or
                     f"https://www.trustpilot.com/search?query={quote_plus(subject)}",
                     "TRUSTPILOT.COM", True))
     targets.append(("search_results",
@@ -126,9 +185,12 @@ def screenshot_pages(subject: str, site: str | None, topic_slug: str,
     d = _shots_dir(topic_slug)
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox"])
-        page = browser.new_page(viewport={"width": 1440, "height": 900},
+        # NARROW viewport + 2x scale = big readable text when the shot is
+        # scaled into the video (mobile-legibility fix)
+        page = browser.new_page(viewport={"width": 880, "height": 900},
                                 user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                                            "AppleWebKit/537.36 Chrome/126.0 Safari/537.36"))
+                                            "AppleWebKit/537.36 Chrome/126.0 Safari/537.36"),
+                                device_scale_factor=2)
         for name, url, badge, scrollable in targets:
             try:
                 page.goto(url, timeout=35000, wait_until="domcontentloaded")
@@ -144,8 +206,8 @@ def screenshot_pages(subject: str, site: str | None, topic_slug: str,
                     page.screenshot(path=str(path), full_page=True)
                     from PIL import Image as _Im
                     im = _Im.open(path)
-                    if im.height > 3600:
-                        im.crop((0, 0, im.width, 3600)).save(path)
+                    if im.height > 7000:
+                        im.crop((0, 0, im.width, 7000)).save(path)
                 except Exception:
                     page.screenshot(path=str(path), full_page=False)
                 shots.append({"name": name, "url": url, "path": str(path),
@@ -162,6 +224,12 @@ def investigate(topic: dict) -> dict:
     slug = slugify(topic["topic"])
     site = find_official_site(subject)
 
+    # merge discovered reddit threads into the evidence pool
+    found_reddit = [t["url"] for t in reddit_search(subject)[:2]]
+    reddit_urls = list(dict.fromkeys(
+        (topic.get("reddit_urls") or []) + found_reddit))
+    topic["reddit_urls"] = reddit_urls
+
     dossier = {
         "topic": topic,
         "slug": slug,
@@ -171,9 +239,16 @@ def investigate(topic: dict) -> dict:
         "search_results_2": ddg_results(f'{subject} payment proof OR "does it work"'),
         "search_results_trustpilot": ddg_results(f'{subject} site:trustpilot.com'),
         "search_results_bbb": ddg_results(f'{subject} site:bbb.org OR site:sitejabber.com'),
+        "search_results_appstores": ddg_results(
+            f'{subject} site:play.google.com OR site:apps.apple.com'),
+        "search_results_social": ddg_results(
+            f'{subject} scam OR legit site:twitter.com OR site:x.com'),
+        "trustpilot_rating": (tp := trustpilot_rating(subject, site)),
+        "reddit_search": reddit_search(subject),
         "reddit_evidence": reddit_thread_evidence(topic.get("reddit_urls", [])),
         "screenshots": screenshot_pages(subject, site, slug,
-                                        topic.get("reddit_urls", [])),
+                                        topic.get("reddit_urls", []),
+                                        (tp or {}).get("page")),
         "collected_at": time.strftime("%Y-%m-%d"),
     }
 
@@ -189,10 +264,21 @@ DOSSIER:
 Return JSON:
 {{"verdict": "legit"|"scam_likely"|"mixed"|"works"|"doesnt_work"|"unverified",
  "confidence": "high"|"medium"|"low",
- "key_findings": [5-8 specific evidence-backed bullet points, each mentioning its source],
+ "what_it_claims": str (1-2 sentences: what the app/site promises users,
+    from its own marketing — the video opens with this),
+ "rating_stats": str|null (concrete numbers if present in the dossier, e.g.
+    "Trustpilot TrustScore 2.3 from 1,204 reviews — 58% are 1-star". Only
+    real numbers from the dossier, never invented),
+ "key_findings": [6-10 specific evidence-backed bullet points, each naming
+    its source (Trustpilot / Reddit r/sub / web search / official site / BBB)],
  "red_flags": [list],
  "green_flags": [list],
- "best_user_quotes": [up to 3 short real quotes from reddit evidence with sub name],
+ "best_user_quotes": [up to 5 short REAL quotes from reddit/review evidence,
+    each with where it came from — the narrator reads these on camera],
+ "risk_assessment": str (2-3 sentences: what a user actually risks by trying
+    this — time, money, personal data — grounded in the evidence),
+ "way_forward": str (2-3 sentences of practical advice: what to do/check
+    before trying, e.g. start small, never pay upfront, read recent reviews),
  "sources": [list of the URLs actually used]}}""", temperature=0.4)
     dossier["findings"] = distill
     (WORK_DIR / slug).mkdir(parents=True, exist_ok=True)

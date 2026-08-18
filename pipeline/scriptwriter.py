@@ -14,17 +14,45 @@ Voice: casual smart friend — like texting your sharpest friend who did the
 homework for you. Contractions, direct address ("you"), light humor, zero fluff.
 NEVER robotic, NEVER "in this video we will". No emojis in narration.
 
-Retention rules you MUST follow:
-- Cold open: first 2 sentences state the burning question + tease the most
-  surprising finding WITHOUT revealing it ("...and what I found in their
-  terms of service is honestly wild. Stick around for that.")
-- Open loop every ~90 seconds ("but that's not even the weird part")
-- Every claim tied to evidence from the dossier — cite where it came from
-  in-narration ("on their own Trustpilot page...", "one Redditor put it this way")
+NARRATIVE ARC (MANDATORY — this is the channel's signature structure,
+modeled on top investigation channels):
+1. THE CLAIM — open by introducing the app/site and what IT claims to do,
+   in its own marketing language ("Testerup says it'll pay you over a
+   hundred dollars just for testing games. That's the pitch."). Then the
+   burning question + tease the most surprising finding WITHOUT revealing
+   it ("but when I dug into what happens at cashout... you need to see this.")
+2. THE INVESTIGATION — walk through the research SOURCE BY SOURCE, like a
+   detective laying out evidence. Each source gets its own beat:
+   - START WITH THE NUMBERS: if rating stats exist, lead with them
+     ("First stop: Trustpilot. Two point three out of five. And get this —
+     fifty-eight percent of all reviews are one star. That's not a few
+     unlucky users, that's a pattern.")
+   - READ REAL COMMENTS out loud, introduced with emphasis ("and listen to
+     what this user actually wrote: quote..."). Reading real user words is
+     the single most trusted moment in the video — use the best_user_quotes.
+   - Teach judgment as you go ("here's a tip: ignore the star number for a
+     second and read the one-star reviews — if they all describe the SAME
+     problem, that problem is real.")
+   - Transition between sources explicitly ("okay, that's Trustpilot. But
+     one review site is never enough — let's see what Reddit says.")
+3. THE RISK — a dedicated beat spelling out what a viewer actually risks by
+   trying this: time, money, personal data. Be concrete ("worst case here
+   isn't losing money — it's forty hours of your life for a payout that may
+   never come.")
+4. THE VERDICT — near the END (that's why they stay). Clear, evidence-based.
+5. THE WAY FORWARD — practical advice: what to check before trying ANY app
+   like this ("next time, before you put time or money into an app, do this
+   one thing: check the one-star reviews first. You must know what's at
+   stake before you start — or just watch our checks first.")
+   Then 1-line CTA: subscribe framed as service ("we check this stuff so you
+   don't get burned — that's the whole channel").
+
+Retention devices:
+- Open loop every ~60-90 seconds ("but that's not even the weird part")
 - Rhetorical questions to re-engage ("sound familiar?")
-- Verdict near the END (that's why they stay), then 1-line CTA:
-  subscribe framed as service ("we check this stuff weekly so you don't
-  get burned — that's the whole channel")
+- Numbers beat adjectives: "58% one-star" beats "lots of bad reviews" every time
+- Every claim tied to evidence from the dossier — always cite the source
+  in-narration ("on their own Trustpilot page...", "one Redditor put it this way")
 Ad-safety: no profanity, no accusations-as-fact (use "red flags", "users
 report"), no medical/financial advice claims, family-friendly.
 
@@ -66,27 +94,48 @@ def write_script(dossier: dict, kind: str = "long") -> dict:
              for s in dossier.get("screenshots", [])]
 
     if kind == "long":
-        length_spec = (f"{v['target_minutes_min']}-{v['target_minutes_max']} minutes "
-                       f"(~{v['target_minutes_min'] * 150}-{v['target_minutes_max'] * 150} words)")
-        seg_spec = ("10-16 segments. This is the DEEP DIVE: walk through EVERY key "
-                    "finding from the dossier one by one — don't summarize, show the "
-                    "work. Cover the red flags AND the green flags in detail, quote "
-                    "real users, explain what the domain/company info means, and pair "
+        min_words = v['target_minutes_min'] * 140
+        max_words = v['target_minutes_max'] * 150
+        length_spec = (f"{v['target_minutes_min']}-{v['target_minutes_max']} minutes. "
+                       f"HARD REQUIREMENT: total narration MUST be at least "
+                       f"{min_words} words (target {min_words}-{max_words}). "
+                       f"A script under {min_words} words is a FAILED script")
+        seg_spec = ("14-20 segments following the full narrative arc. This is the "
+                    "DEEP DIVE: introduce the claim, then walk through EVERY source "
+                    "and EVERY key finding one by one — don't summarize, show the "
+                    "work. Read multiple real user quotes in full. Explain the "
+                    "rating numbers and what each percentage means. Cover red flags "
+                    "AND green flags in detail. Explain the domain/company info. "
+                    "Dedicate full segments to THE RISK and THE WAY FORWARD. Pair "
                     "each major finding with its own evidence segment (screenshot "
-                    "visual + source named in narration). The viewer should finish "
-                    "feeling like they watched the full investigation, not a recap")
+                    "visual + source named in narration). Each segment's narration "
+                    "should be 60-110 words — substantial beats, not one-liners. "
+                    "The viewer should finish feeling like they watched the full "
+                    "investigation, not a recap")
     else:
-        length_spec = "35-48 seconds (~95-125 words)"
-        seg_spec = "3-5 segments. Segment 1 = instant hook, last = verdict + 'follow for the full breakdown'"
+        min_words = 130
+        length_spec = ("50-60 seconds (~140-165 words). Use the full minute — "
+                       "a Short that ends too fast can't build trust")
+        seg_spec = ("5-7 segments compressing the narrative arc: (1) the claim + "
+                    "hook, (2) the numbers from source #1 (rating + percentages), "
+                    "(3) a real user quote read aloud, (4) cross-check with a "
+                    "second source, (5) the risk in one line, (6) verdict + way "
+                    "forward, (7) 'full breakdown on the channel' + what should "
+                    "we check next")
 
     prompt = f"""Write the {kind}-form script.
 
 TOPIC: {dossier['topic']['topic']}
+WHAT IT CLAIMS: {findings.get('what_it_claims', 'unknown')}
 VERDICT: {findings['verdict']} (confidence: {findings['confidence']})
+RATING STATS (lead with these numbers): {findings.get('rating_stats')}
+TRUSTPILOT DATA: {json.dumps(dossier.get('trustpilot_rating'))}
 KEY FINDINGS: {json.dumps(findings['key_findings'], indent=1)}
 RED FLAGS: {json.dumps(findings.get('red_flags', []))}
 GREEN FLAGS: {json.dumps(findings.get('green_flags', []))}
-REAL USER QUOTES: {json.dumps(findings.get('best_user_quotes', []))}
+REAL USER QUOTES (read the best ones aloud): {json.dumps(findings.get('best_user_quotes', []))}
+THE RISK: {findings.get('risk_assessment')}
+WAY FORWARD ADVICE: {findings.get('way_forward')}
 DOMAIN INFO: {json.dumps(dossier.get('domain_info'))}
 AVAILABLE SCREENSHOTS (use as visual proof — "source" tells you which site it
 captures; name that source in the narration when it's on screen): {json.dumps(shots)}
@@ -123,6 +172,32 @@ Return JSON:
                 "verdict_emoji_concept": str}}
 }}"""
     script = gemini_json(prompt, system=SYSTEM, temperature=0.95)
+
+    # LENGTH ENFORCEMENT: a "10 minute" script that comes back at 2 minutes
+    # kills the channel. Count narration words; if short, ask the model to
+    # EXPAND (deeper source walkthroughs, more quotes) up to 2 retries.
+    def _wc(s):
+        return sum(len(seg.get("narration", "").split())
+                   for seg in s.get("segments", []))
+    if kind == "long":
+        for _ in range(2):
+            wc = _wc(script)
+            if wc >= min_words:
+                break
+            expand = gemini_json(
+                prompt + f"""
+
+PREVIOUS ATTEMPT (only {wc} words of narration — TOO SHORT, minimum is
+{min_words}): {json.dumps(script.get('segments', []))[:8000]}
+
+Rewrite the FULL script at proper depth. Expand every investigation beat:
+spend more time on each source, read MORE real user quotes in full, explain
+the rating numbers and percentages, add the risk and way-forward segments
+if missing. Same JSON format. Total narration MUST exceed {min_words} words.""",
+                system=SYSTEM, temperature=0.9)
+            if _wc(expand) > wc:
+                script = expand
+
     script["kind"] = kind
     out = WORK_DIR / dossier["slug"] / f"script_{kind}.json"
     out.write_text(json.dumps(script, indent=2, ensure_ascii=False), encoding="utf-8")
