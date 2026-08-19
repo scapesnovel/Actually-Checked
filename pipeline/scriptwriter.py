@@ -103,7 +103,10 @@ def write_script(dossier: dict, kind: str = "long") -> dict:
     cfg = load_config()
     v = cfg["video"]["long" if kind == "long" else "short"]
     findings = dossier["findings"]
-    shots = [{"name": s["name"], "source": s.get("source", "web")}
+    shots = [{"name": s["name"], "source": s.get("source", "web"),
+              "shows": s.get("reads", ""),
+              "visible_rating": s.get("visible_rating"),
+              "quotable_on_screen": [h["text"] for h in s.get("highlights", [])]}
              for s in dossier.get("screenshots", [])]
 
     if kind == "long":
@@ -150,8 +153,14 @@ REAL USER QUOTES (read the best ones aloud): {json.dumps(findings.get('best_user
 THE RISK: {findings.get('risk_assessment')}
 WAY FORWARD ADVICE: {findings.get('way_forward')}
 DOMAIN INFO: {json.dumps(dossier.get('domain_info'))}
-AVAILABLE SCREENSHOTS (use as visual proof — "source" tells you which site it
-captures; name that source in the narration when it's on screen): {json.dumps(shots)}
+AVAILABLE SCREENSHOTS — each was READ by our vision system. "shows" is what
+the page ACTUALLY displays, and "quotable_on_screen" are the exact review/
+rating/claim snippets that will POP on screen while this screenshot is the
+visual. HARD RULE: when a screenshot is on screen, the narration MUST match
+what it shows — talk about the visible rating, read the quotable snippets
+aloud (they appear as pop-cards as you speak them), never describe something
+the screenshot doesn't contain. Name the source out loud too.
+{json.dumps(shots, indent=1)}
 
 Target length: {length_spec}. {seg_spec}.
 

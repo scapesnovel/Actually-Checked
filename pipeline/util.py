@@ -139,3 +139,49 @@ def gemini_json(prompt: str, system: str = "", temperature: float = 0.9):
     txt = gemini(prompt, system=system, json_mode=True, temperature=temperature)
     txt = re.sub(r"^```(json)?|```$", "", txt.strip(), flags=re.M).strip()
     return json.loads(txt)
+
+
+def gemini_vision_json(prompt: str, image_path: str,
+                       temperature: float = 0.3, max_retries: int = 3):
+    """Send an IMAGE + prompt to Gemini, get JSON back. Used to make the
+    bot actually READ the screenshots it's about to show as proof."""
+    import base64
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY env var missing")
+    with open(image_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+    body = {
+        "contents": [{"role": "user", "parts": [
+            {"inlineData": {"mimeType": "image/png", "data": b64}},
+            {"text": prompt}]}],
+        "generationConfig": {"temperature": temperature,
+                             "maxOutputTokens": 8192,
+                             "responseMimeType": "application/json"},
+    }
+    candidates = list(GEMINI_MODELS)
+    for m in _list_gemini_models(key):
+        if m not in candidates:
+            candidates.append(m)
+    last_err = None
+    for model in candidates:
+        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{model}:generateContent?key={key}")
+        for attempt in range(max_retries):
+            try:
+                r = requests.post(url, json=body, timeout=150)
+                if r.status_code == 404:
+                    last_err = f"404: {model}"
+                    break
+                if r.status_code == 429:
+                    time.sleep(8 * (attempt + 1) + random.random() * 4)
+                    continue
+                r.raise_for_status()
+                txt = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+                txt = re.sub(r"^```(json)?|```$", "", txt.strip(),
+                             flags=re.M).strip()
+                return json.loads(txt)
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+                time.sleep(4 * (attempt + 1))
+    raise RuntimeError(f"Gemini vision failed on all models: {last_err}")

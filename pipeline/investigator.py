@@ -218,6 +218,65 @@ def screenshot_pages(subject: str, site: str | None, topic_slug: str,
     return shots
 
 
+def read_screenshots(shots: list[dict], subject: str) -> list[dict]:
+    """The bot READS every screenshot before it's allowed in a video.
+    For each shot Gemini vision returns:
+      - usable: is this actually showing content about the subject?
+        (drops cookie walls, captchas, 404s, empty search pages)
+      - summary: what the page ACTUALLY shows (scriptwriter must match this)
+      - highlights: the juiciest regions (a review, a rating, a claim)
+        with normalized y-coords so the editor can crop + pop them."""
+    from .util import gemini_vision_json
+    from PIL import Image as _Im
+    checked = []
+    for s in shots:
+        try:
+            im = _Im.open(s["path"])
+            iw, ih = im.size
+            info = gemini_vision_json(f"""You are QC for a fact-check video about "{subject}".
+Read this screenshot of {s.get('url','a page')} (source: {s.get('source')}).
+The image is {iw}x{ih}px, top of page at y=0.
+
+Return JSON:
+{{"usable": true|false (false if it's a cookie wall, captcha, error page,
+    empty/no-results page, or shows nothing about {subject}),
+ "summary": str (2-3 sentences: what the page ACTUALLY shows — visible
+    ratings, star scores, review counts, claims, headlines. Only what is
+    truly visible, never invented),
+ "visible_rating": str|null (e.g. "2.9/5 from 11,203 reviews" if visible),
+ "highlights": [up to 4 of the most quotable regions — a single user review,
+    a rating block, a marketing claim. Each:
+    {{"kind": "review"|"rating"|"claim"|"headline",
+      "text": str (the visible text, verbatim, <=220 chars),
+      "y_top_pct": float (0-100, top of the region as % of image height),
+      "y_bottom_pct": float (0-100, bottom of region; keep the region
+         TIGHT around the text block, 5-20% tall typically)}}]
+}}""", s["path"])
+            s["usable"] = bool(info.get("usable"))
+            s["reads"] = info.get("summary", "")
+            s["visible_rating"] = info.get("visible_rating")
+            hl = []
+            for h in (info.get("highlights") or [])[:4]:
+                try:
+                    yt = max(0.0, min(99.0, float(h["y_top_pct"])))
+                    yb = max(yt + 2.0, min(100.0, float(h["y_bottom_pct"])))
+                    hl.append({"kind": h.get("kind", "review"),
+                               "text": (h.get("text") or "")[:220],
+                               "y_top_pct": yt, "y_bottom_pct": yb})
+                except Exception:
+                    continue
+            s["highlights"] = hl
+        except Exception:
+            # vision unavailable -> keep the shot but mark unverified
+            s["usable"] = True
+            s["reads"] = ""
+            s["highlights"] = []
+        if s["usable"]:
+            checked.append(s)
+        time.sleep(1.0)
+    return checked
+
+
 def investigate(topic: dict) -> dict:
     """Full investigation dossier for the scriptwriter."""
     subject = topic["subject"]
@@ -246,9 +305,10 @@ def investigate(topic: dict) -> dict:
         "trustpilot_rating": (tp := trustpilot_rating(subject, site)),
         "reddit_search": reddit_search(subject),
         "reddit_evidence": reddit_thread_evidence(topic.get("reddit_urls", [])),
-        "screenshots": screenshot_pages(subject, site, slug,
-                                        topic.get("reddit_urls", []),
-                                        (tp or {}).get("page")),
+        "screenshots": read_screenshots(
+            screenshot_pages(subject, site, slug,
+                             topic.get("reddit_urls", []),
+                             (tp or {}).get("page")), subject),
         "collected_at": time.strftime("%Y-%m-%d"),
     }
 
@@ -259,7 +319,14 @@ only use what's in the dossier. Use cautious evidence language ("red flags we
 found", "users report", "we couldn't verify") — never state accusations as fact.
 
 DOSSIER:
-{json.dumps({k: v for k, v in dossier.items() if k != 'screenshots'}, indent=1)[:14000]}
+{json.dumps({k: v for k, v in dossier.items() if k != 'screenshots'}, indent=1)[:12000]}
+
+WHAT OUR SCREENSHOTS ACTUALLY SHOW (verified by reading them — these are the
+visuals the video will display, so findings MUST be consistent with them):
+{json.dumps([{'name': s['name'], 'source': s.get('source'),
+              'shows': s.get('reads'), 'visible_rating': s.get('visible_rating'),
+              'quotable': [h['text'] for h in s.get('highlights', [])]}
+             for s in dossier['screenshots']], indent=1)[:6000]}
 
 Return JSON:
 {{"verdict": "legit"|"scam_likely"|"mixed"|"works"|"doesnt_work"|"unverified",

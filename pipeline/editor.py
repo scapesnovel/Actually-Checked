@@ -13,7 +13,7 @@ Built on ffmpeg filter graphs per-segment, then concat. CPU-friendly for CI.
 import json, math, random, subprocess, shutil
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from .util import WORK_DIR, ASSETS, load_config
 from .broll import fetch_broll
@@ -176,12 +176,11 @@ def frame_screenshot_scroll(shot_path: str, out_path: Path, size,
     """Tall 'scroll strip': the FULL screenshot in a browser frame, taller
     than the video. The editor pans down it = looks like real scrolling
     through reviews/comments. Adds a source badge (e.g. TRUSTPILOT.COM).
-    zoom=True builds the strip WIDER than the frame (magnified) so the
-    editor can pan across details — nothing gets cropped out, the camera
-    just travels over it. Returns (strip_width, strip_height)."""
+    Full width always — never wider than the frame, so no words are ever
+    cut off. Returns (strip_width, strip_height)."""
     W, H = size
     shot = Image.open(shot_path).convert("RGB")
-    target_w = int(W * (1.45 if zoom else 0.92))
+    target_w = int(W * 0.94)
     shot = shot.resize((target_w, int(shot.height * target_w / shot.width)),
                        Image.LANCZOS)
     # keep it readable: strip 1.2x..3x of the video height
@@ -202,6 +201,61 @@ def frame_screenshot_scroll(shot_path: str, out_path: Path, size,
     frame.paste(shot, (x, int(H * 0.03) + bar_h))
     frame.save(out_path)
     return frame.width, frame.height
+
+
+def make_highlight_cards(shot_path: str, highlights: list[dict],
+                         seg_dir: Path, i: int, size) -> list[dict]:
+    """Crop each highlighted region (a review / rating / claim the vision
+    model located) into a clean 'pop card': white-ish card, accent border,
+    soft shadow, kind tag (REVIEW / RATING / CLAIM). The editor pops these
+    one by one over the blurred page = crystal-clear evidence."""
+    W, H = size
+    shot = Image.open(shot_path).convert("RGB")
+    iw, ih = shot.size
+    cards = []
+    for n, h in enumerate(highlights[:4]):
+        try:
+            yt = int(ih * h["y_top_pct"] / 100.0)
+            yb = int(ih * h["y_bottom_pct"] / 100.0)
+            # a little context padding
+            pad = int(ih * 0.008)
+            crop = shot.crop((0, max(0, yt - pad), iw, min(ih, yb + pad)))
+            # scale card to ~86% of frame width
+            cw = int(W * 0.86)
+            crop = crop.resize((cw, int(crop.height * cw / crop.width)),
+                               Image.LANCZOS)
+            if crop.height > int(H * 0.42):   # keep cards compact
+                crop = crop.crop((0, 0, crop.width, int(H * 0.42)))
+            bw = 6
+            tag_h = int(H * 0.032)
+            card = Image.new("RGBA",
+                             (crop.width + bw * 2,
+                              crop.height + bw * 2 + tag_h),
+                             (0, 0, 0, 0))
+            d = ImageDraw.Draw(card)
+            # accent border + card body
+            d.rounded_rectangle([0, tag_h, card.width - 1, card.height - 1],
+                                radius=18, fill=BRAND_ACCENT + (255,))
+            card.paste(crop, (bw, tag_h + bw))
+            # kind tag
+            fs = int(tag_h * 0.72)
+            try:
+                f = ImageFont.truetype(str(FONT_BOLD), fs)
+            except Exception:
+                f = ImageFont.load_default()
+            tag = {"review": "USER REVIEW", "rating": "THE RATING",
+                   "claim": "THEIR CLAIM", "headline": "HEADLINE"}.get(
+                       h.get("kind", "review"), "EVIDENCE")
+            tw = int(d.textlength(tag, font=f))
+            d.rounded_rectangle([0, 0, tw + fs * 1.6, tag_h + 8],
+                                radius=10, fill=(10, 12, 16, 235))
+            d.text((fs * 0.8, 2), tag, font=f, fill=BRAND_ACCENT + (255,))
+            p = seg_dir / f"hcard_{i:03d}_{n}.png"
+            card.save(p)
+            cards.append({"path": p, "w": card.width, "h": card.height})
+        except Exception:
+            continue
+    return cards
 
 
 def make_source_badge(source: str, out_path: Path, size):
@@ -313,14 +367,27 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
             meta = shots[name]
             shot_path = meta["path"] if isinstance(meta, dict) else meta
             source = (meta.get("source") if isinstance(meta, dict) else None)
+            highlights = (meta.get("highlights") or []) if isinstance(meta, dict) else []
+            cards = make_highlight_cards(shot_path, highlights, seg_dir, i, size) \
+                if highlights else []
             strip = seg_dir / f"strip_{i:03d}.png"
-            zoomed = bool(seg.get("zoom"))
             strip_w, strip_h = frame_screenshot_scroll(shot_path, strip, size,
-                                                       source, zoom=zoomed)
-            if strip_h > H * 1.15:   # tall enough to scroll through
-                evidence = {"strip": strip, "strip_w": strip_w,
-                            "strip_h": strip_h, "source": source,
-                            "zoom": zoomed}
+                                                       source)
+            if cards:
+                # POP-CARD mode: page scrolls softly behind while the exact
+                # comments/ratings/claims pop on top one by one, big & clear.
+                # Pre-blur + dim the strip ONCE with PIL — doing gblur in
+                # ffmpeg per-frame is brutally slow on tall strips.
+                strip_blur = seg_dir / f"stripb_{i:03d}.png"
+                with Image.open(strip) as _s:
+                    _b = _s.convert("RGB").filter(ImageFilter.GaussianBlur(8))
+                    _b = ImageEnhance.Brightness(_b).enhance(0.72)
+                    _b.save(strip_blur)
+                evidence = {"strip": strip_blur, "strip_h": strip_h,
+                            "source": source, "cards": cards}
+            elif strip_h > H * 1.15:   # tall enough to scroll through
+                evidence = {"strip": strip, "strip_h": strip_h,
+                            "source": source}
             else:                    # short page -> classic framed still
                 src_img = seg_dir / f"shot_{i:03d}.png"
                 frame_screenshot(shot_path, src_img, size)
@@ -370,7 +437,60 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
                           position="bottom" if evidence else "center")
         vf_extra += f",subtitles='{ass}':fontsdir='{ASSETS / 'fonts'}'"
 
-    if evidence and evidence.get("strip"):
+    if evidence and evidence.get("cards"):
+        # POP-CARD PROOF: page scrolls dimmed/soft in the background while
+        # each highlighted comment/rating/claim POPS on top one by one —
+        # crystal clear, covering only what it must
+        strip_h = evidence["strip_h"]
+        cards = evidence["cards"]
+        scroll_range = max(1, strip_h - H)
+        yexpr = f"min({scroll_range},t*{scroll_range}/{max(2.0, dur):.2f})"
+        base = f"crop={W}:{H}:0:'{yexpr}',setsar=1"  # strip pre-blurred/dimmed
+        cmd = ["ffmpeg", "-y", "-loop", "1", "-i", str(evidence["strip"]),
+               "-i", str(audio)]
+        subfx = (f",subtitles='{ass}':fontsdir='{ASSETS / 'fonts'}'"
+                 if words else "")
+        fc = [f"[0:v]{base}{subfx}[bg]"]
+        vprev = "[bg]"
+        n_cards = len(cards)
+        slot = max(1.2, (dur - 0.6) / n_cards)
+        times = []
+        for cn, card in enumerate(cards):
+            cmd += ["-loop", "1", "-i", str(card["path"])]
+            t0 = min(0.35 + cn * slot, max(0.35, dur - 1.0))
+            t1 = min(dur, t0 + slot + 0.25)   # slight overlap feels lively
+            times.append(t0)
+            # cards live in the upper 2/3 (captions own the bottom)
+            ytar = int(H * 0.14) if n_cards == 1 else \
+                int(H * (0.08 + 0.15 * (cn % 3)))
+            fc.append(
+                f"[{cn+2}:v]format=rgba,"
+                f"fade=t=in:st={t0:.2f}:d=0.22:alpha=1,"
+                f"fade=t=out:st={max(t0, t1-0.25):.2f}:d=0.25:alpha=1[c{cn}];"
+                f"{vprev}[c{cn}]overlay=x=(W-w)/2:"
+                f"y='{ytar}+30*max(0,1-(t-{t0:.2f})*5)':"
+                f"enable='between(t,{t0:.2f},{t1:.2f})'[v{cn}]")
+            vprev = f"[v{cn}]"
+        # audio: narration padded + pop SFX per card
+        pop = SFX / "pop.wav"
+        fc.append("[1:a]apad[nar]")
+        amap = "[nar]"
+        if pop.exists():
+            pl = []
+            for cn, t0 in enumerate(times):
+                cmd += ["-i", str(pop)]
+                fc.append(f"[{n_cards+2+cn}:a]adelay={int(t0*1000)}|"
+                          f"{int(t0*1000)},volume=0.6[pp{cn}]")
+                pl.append(f"[pp{cn}]")
+            fc.append(f"[nar]{''.join(pl)}amix=inputs={n_cards+1}:"
+                      f"duration=first:normalize=0[afin]")
+            amap = "[afin]"
+        _run(cmd + ["-filter_complex", ";".join(fc),
+              "-map", vprev, "-map", amap, "-t", f"{dur:.3f}", "-r", "30",
+              "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+              "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+              "-pix_fmt", "yuv420p", str(out)])
+    elif evidence and evidence.get("strip"):
         # SCROLLING PROOF: slow pan down the tall screenshot strip, pause
         # at the top first so viewers orient, then glide through content
         strip_h = evidence["strip_h"]
@@ -379,14 +499,7 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
         hold = min(1.2, dur * 0.2)   # initial hold before scrolling starts
         yexpr = (f"min({scroll_range},"
                  f"max(0,(t-{hold:.2f}))*{scroll_range}/{max(0.5, dur - hold - 0.4):.2f})")
-        # zoom mode: strip is WIDER than the frame (magnified) -> pan
-        # horizontally too (left->right->left) so no detail is ever lost
-        if strip_w > W + 4:
-            xr = strip_w - W
-            xexpr = f"({xr}/2)*(1-cos(2*PI*t/{max(4.0, dur):.2f}))"
-            vf = f"crop={W}:{H}:'{xexpr}':'{yexpr}',setsar=1{vf_extra}"
-        else:
-            vf = f"crop={W}:{H}:0:'{yexpr}',setsar=1{vf_extra}"
+        vf = f"crop={W}:{H}:0:'{yexpr}',setsar=1{vf_extra}"
         _run(["ffmpeg", "-y", "-loop", "1", "-i", str(evidence["strip"]),
               "-i", str(audio), "-t", f"{dur:.3f}", "-vf", vf,
               "-af", "apad",   # pad audio to video length = NO cumulative drift
