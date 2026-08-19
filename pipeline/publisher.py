@@ -22,13 +22,16 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
 
 
 def yt_client():
+    # NOTE: scopes=None on refresh — Google rejects the refresh with
+    # 'invalid_scope' if we assert scopes the token wasn't granted.
+    # The token keeps whatever scopes the user consented to (upload is
+    # all we need to publish); asserting nothing = always refreshable.
     creds = Credentials(
         token=None,
         refresh_token=os.environ["YT_REFRESH_TOKEN"],
         client_id=os.environ["YT_CLIENT_ID"],
         client_secret=os.environ["YT_CLIENT_SECRET"],
-        token_uri="https://oauth2.googleapis.com/token",
-        scopes=SCOPES)
+        token_uri="https://oauth2.googleapis.com/token")
     creds.refresh(Request())
     return build("youtube", "v3", credentials=creds)
 
