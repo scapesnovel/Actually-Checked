@@ -36,6 +36,11 @@ modeled on top investigation channels):
      camera magnifies the site's own marketing text. Show, don't just tell.
 2. THE INVESTIGATION — walk through the research SOURCE BY SOURCE, like a
    detective laying out evidence. Each source gets its own beat:
+   - STEELMAN BOTH SIDES like an honest analyst. Never a lazy one-sided
+     take: present the strongest evidence it's REAL first ("let's be fair —
+     here's the best case FOR it"), THEN pivot to the red flags ("but then
+     I found something that changes the picture"). The pivot IS the
+     retention hook.
    - START WITH THE NUMBERS: if rating stats exist, lead with them
      ("First stop: Trustpilot. Two point three out of five. And get this —
      fifty-eight percent of all reviews are one star. That's not a few
@@ -43,6 +48,14 @@ modeled on top investigation channels):
    - READ REAL COMMENTS out loud, introduced with emphasis ("and listen to
      what this user actually wrote: quote..."). Reading real user words is
      the single most trusted moment in the video — use the best_user_quotes.
+   - NAME THE PATTERN: if the_pattern exists in the findings, dedicate a
+     beat to walking through it step by step ("here's the story that keeps
+     repeating: you complete offers... your balance grows... you hit
+     withdraw... and THAT's when the problems start"). A recurring pattern
+     across independent users is the most damning — or most reassuring —
+     evidence there is. Interpret it honestly: also give the innocent
+     explanation when one exists ("to be fair, bigger payouts attract
+     harder fraud checks — but from YOUR side the result feels the same").
    - Teach judgment as you go ("here's a tip: ignore the star number for a
      second and read the one-star reviews — if they all describe the SAME
      problem, that problem is real.")
@@ -52,11 +65,19 @@ modeled on top investigation channels):
    trying this: time, money, personal data. Be concrete ("worst case here
    isn't losing money — it's forty hours of your life for a payout that may
    never come.")
-4. THE VERDICT — near the END (that's why they stay). Clear, evidence-based.
-5. THE WAY FORWARD — practical advice: what to check before trying ANY app
-   like this ("next time, before you put time or money into an app, do this
-   one thing: check the one-star reviews first. You must know what's at
-   stake before you start — or just watch our checks first.")
+4. THE VERDICT — near the END (that's why they stay). NUANCED and scored,
+   never binary: use the legitimacy/reliability scores when present ("so
+   here's my honest score: six out of ten that it's real... but only three
+   out of ten that you can RELY on it. And that gap? That gap is the whole
+   story."). "Real but unreliable" is a verdict; "scam / not scam" alone
+   is lazy.
+5. THE WAY FORWARD — deliver the way_forward RULES as a numbered rulebook,
+   one by one, punchy ("Rule one: never put in your own money. Rule two:
+   the moment you hit ten dollars, test a withdrawal — you're not cashing
+   out, you're testing THEM."). If results vary by region, say so as
+   general knowledge ("and heads up — offers and payouts vary a LOT
+   depending on where you live, so test yours before you commit hours") —
+   NEVER name specific countries; this channel speaks to everyone.
    Then 1-line CTA: subscribe framed as service ("we check this stuff so you
    don't get burned — that's the whole channel").
 
@@ -144,14 +165,18 @@ def write_script(dossier: dict, kind: str = "long") -> dict:
 TOPIC: {dossier['topic']['topic']}
 WHAT IT CLAIMS: {findings.get('what_it_claims', 'unknown')}
 VERDICT: {findings['verdict']} (confidence: {findings['confidence']})
+SCORES (use in the verdict beat): {json.dumps(findings.get('scores'))}
 RATING STATS (lead with these numbers): {findings.get('rating_stats')}
 TRUSTPILOT DATA: {json.dumps(dossier.get('trustpilot_rating'))}
+STRONGEST EVIDENCE FOR (steelman first): {json.dumps(findings.get('strongest_evidence_for', []))}
+STRONGEST EVIDENCE AGAINST: {json.dumps(findings.get('strongest_evidence_against', []))}
+THE PATTERN (dedicate a beat if not null): {findings.get('the_pattern')}
 KEY FINDINGS: {json.dumps(findings['key_findings'], indent=1)}
 RED FLAGS: {json.dumps(findings.get('red_flags', []))}
 GREEN FLAGS: {json.dumps(findings.get('green_flags', []))}
 REAL USER QUOTES (read the best ones aloud): {json.dumps(findings.get('best_user_quotes', []))}
 THE RISK: {findings.get('risk_assessment')}
-WAY FORWARD ADVICE: {findings.get('way_forward')}
+WAY FORWARD RULES (deliver as numbered rulebook): {json.dumps(findings.get('way_forward'))}
 DOMAIN INFO: {json.dumps(dossier.get('domain_info'))}
 AVAILABLE SCREENSHOTS — each was READ by our vision system. "shows" is what
 the page ACTUALLY displays, and "quotable_on_screen" are the exact review/

@@ -203,70 +203,109 @@ def frame_screenshot_scroll(shot_path: str, out_path: Path, size,
     return frame.width, frame.height
 
 
-def make_highlight_cards(shot_path: str, highlights: list[dict],
-                         seg_dir: Path, i: int, size) -> list[dict]:
-    """Crop each highlighted region (a review / rating / claim the vision
-    model located) into a clean 'pop card': white-ish card, accent border,
-    soft shadow, kind tag (REVIEW / RATING / CLAIM). The editor pops these
-    one by one over the blurred page = crystal-clear evidence."""
+def make_highlight_cards(highlights: list[dict], seg_dir, i: int, size,
+                         source: str | None = None) -> list[dict]:
+    """TYPESET QUOTE CARDS — like quoting someone in a chat. Instead of
+    fragile pixel-crops (which could grab cookie banners / empty boxes),
+    we RE-TYPE what the vision model actually READ on the page: a clean
+    card with a big quote mark, the verbatim text, star rating when it's
+    a rating, and the source attribution. Always legible, always matches
+    the narration, zero chance of highlighting the wrong thing."""
     W, H = size
-    shot = Image.open(shot_path).convert("RGB")
-    iw, ih = shot.size
     cards = []
+    try:
+        cw = int(W * 0.86)
+        pad = int(W * 0.045)
+        f_txt = ImageFont.truetype(str(ASSETS / "fonts" / "Inter-Bold.ttf"),
+                                   int(H * 0.026))
+        f_tag = ImageFont.truetype(str(FONT_BOLD), int(H * 0.024))
+        f_src = ImageFont.truetype(str(ASSETS / "fonts" / "Inter-Bold.ttf"),
+                                   int(H * 0.019))
+        f_quo = ImageFont.truetype(str(FONT_BOLD), int(H * 0.075))
+    except Exception:
+        return cards
     for n, h in enumerate(highlights[:4]):
         try:
-            txt = (h.get("text") or "").strip()
+            txt = (h.get("text") or "").strip().strip('"').strip()
             kind = h.get("kind", "review")
-            # QUALITY GATE: skip meaningless highlights (empty search boxes,
-            # nav bars, one-word nothings) — they make the video look sloppy
-            min_len = 4 if kind == "rating" else 18
-            if len(txt) < min_len:
-                continue
-            yt = int(ih * h["y_top_pct"] / 100.0)
-            yb = int(ih * h["y_bottom_pct"] / 100.0)
-            if yb - yt < ih * 0.012:      # region too thin to hold real text
-                continue
-            # a little context padding
-            pad = int(ih * 0.008)
-            crop = shot.crop((0, max(0, yt - pad), iw, min(ih, yb + pad)))
-            # QUALITY GATE 2: reject near-blank crops (uniform background)
-            from PIL import ImageStat
-            if ImageStat.Stat(crop.convert("L")).stddev[0] < 8:
-                continue
-            # scale card to ~86% of frame width
-            cw = int(W * 0.86)
-            crop = crop.resize((cw, int(crop.height * cw / crop.width)),
-                               Image.LANCZOS)
-            if crop.height > int(H * 0.42):   # keep cards compact
-                crop = crop.crop((0, 0, crop.width, int(H * 0.42)))
-            bw = 6
-            tag_h = int(H * 0.032)
-            card = Image.new("RGBA",
-                             (crop.width + bw * 2,
-                              crop.height + bw * 2 + tag_h),
-                             (0, 0, 0, 0))
+            if len(txt) < (4 if kind == "rating" else 18):
+                continue          # nothing meaningful to quote
+            if len(txt) > 200:
+                txt = txt[:197].rsplit(" ", 1)[0] + "..."
+            # --- word-wrap the quote text ---------------------------------
+            tmp = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+            max_w = cw - pad * 2 - int(W * 0.06)
+            lines, cur = [], ""
+            for wd in txt.split():
+                t = (cur + " " + wd).strip()
+                if tmp.textlength(t, font=f_txt) <= max_w:
+                    cur = t
+                else:
+                    lines.append(cur); cur = wd
+            if cur:
+                lines.append(cur)
+            lines = lines[:6]
+            lh = int(H * 0.036)
+            tag_h = int(H * 0.042)
+            body_h = pad + len(lines) * lh + int(H * 0.045) + pad
+            card = Image.new("RGBA", (cw, tag_h + body_h), (0, 0, 0, 0))
             d = ImageDraw.Draw(card)
-            # accent border + card body
-            d.rounded_rectangle([0, tag_h, card.width - 1, card.height - 1],
-                                radius=18, fill=BRAND_ACCENT + (255,))
-            card.paste(crop, (bw, tag_h + bw))
-            # kind tag
-            fs = int(tag_h * 0.72)
-            try:
-                f = ImageFont.truetype(str(FONT_BOLD), fs)
-            except Exception:
-                f = ImageFont.load_default()
+            # card body: dark, rounded, mint accent bar on the left
+            d.rounded_rectangle([0, tag_h, cw - 1, card.height - 1], radius=20,
+                                fill=(20, 24, 31, 247),
+                                outline=BRAND_ACCENT + (255,), width=3)
+            d.rounded_rectangle([0, tag_h, int(W * 0.012), card.height - 1],
+                                radius=6, fill=BRAND_ACCENT + (255,))
+            # big quote mark
+            d.text((pad * 0.55, tag_h + pad * 0.1), '"',
+                   font=f_quo, fill=BRAND_ACCENT + (160,))
+            # the quote text
+            ty = tag_h + pad
+            tx = pad + int(W * 0.045)
+            for ln in lines:
+                d.text((tx, ty), ln, font=f_txt, fill=(240, 242, 246, 255))
+                ty += lh
+            # star rating row (for rating cards: draw the stars visually)
+            ty += int(H * 0.006)
+            m = None
+            if kind == "rating":
+                import re as _re
+                m = _re.search(r"([0-9](?:[.,][0-9])?)\s*(?:/|out of)?\s*5?",
+                               txt)
+            if m:
+                try:
+                    val = float(m.group(1).replace(",", "."))
+                    ssz = int(H * 0.023)
+                    for st in range(5):
+                        col = (0, 182, 122, 255) if st < round(val) \
+                            else (70, 76, 86, 255)
+                        x0 = tx + st * (ssz + 6)
+                        d.polygon([(x0 + ssz*.5, ty), (x0 + ssz*.62, ty + ssz*.38),
+                                   (x0 + ssz, ty + ssz*.4), (x0 + ssz*.7, ty + ssz*.62),
+                                   (x0 + ssz*.8, ty + ssz), (x0 + ssz*.5, ty + ssz*.78),
+                                   (x0 + ssz*.2, ty + ssz), (x0 + ssz*.3, ty + ssz*.62),
+                                   (x0, ty + ssz*.4), (x0 + ssz*.38, ty + ssz*.38)],
+                                  fill=col)
+                except Exception:
+                    pass
+            # source attribution bottom-right
+            if source:
+                att = f"— {source.upper()}"
+                aw = d.textlength(att, font=f_src)
+                d.text((cw - pad - aw, card.height - pad * 0.55 - int(H*0.019)),
+                       att, font=f_src, fill=(150, 158, 170, 255))
+            # kind tag pill on top
             tag = {"review": "USER REVIEW", "rating": "THE RATING",
                    "claim": "THEIR CLAIM", "headline": "HEADLINE"}.get(
-                       h.get("kind", "review"), "EVIDENCE")
-            tw = int(d.textlength(tag, font=f))
-            d.rounded_rectangle([0, 0, tw + fs * 1.6, tag_h + 8],
-                                radius=10, fill=(10, 12, 16, 235))
-            d.text((fs * 0.8, 2), tag, font=f, fill=BRAND_ACCENT + (255,))
+                       kind, "EVIDENCE")
+            tw = int(d.textlength(tag, font=f_tag))
+            d.rounded_rectangle([pad * 0.4, 0, pad * 0.4 + tw + int(W*0.03),
+                                 tag_h + 10], radius=12, fill=(10, 12, 16, 250))
+            d.text((pad * 0.4 + int(W*0.015), int(tag_h*0.12)), tag,
+                   font=f_tag, fill=BRAND_ACCENT + (255,))
             p = seg_dir / f"hcard_{i:03d}_{n}.png"
             card.save(p)
-            cards.append({"path": p, "w": card.width, "h": card.height,
-                          "y_center_pct": (h["y_top_pct"] + h["y_bottom_pct"]) / 2.0})
+            cards.append({"path": p, "w": card.width, "h": card.height})
         except Exception:
             continue
     return cards
@@ -382,25 +421,22 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
             shot_path = meta["path"] if isinstance(meta, dict) else meta
             source = (meta.get("source") if isinstance(meta, dict) else None)
             highlights = (meta.get("highlights") or []) if isinstance(meta, dict) else []
-            cards = make_highlight_cards(shot_path, highlights, seg_dir, i, size) \
-                if highlights else []
+            cards = make_highlight_cards(highlights, seg_dir, i, size,
+                                         source) if highlights else []
             strip = seg_dir / f"strip_{i:03d}.png"
             strip_w, strip_h = frame_screenshot_scroll(shot_path, strip, size,
                                                        source)
             if cards:
-                # POP-CARD mode: the page LOCKS onto each highlighted region
-                # while its card is up, and only glides between them (never
-                # drifts to the footer). Page stays SHARP — just a light dim
-                # so the popped card reads as the focus.
+                # QUOTE-CARD mode: the real page scrolls gently (proof it's
+                # a real site) while clean typeset quote cards pop on top —
+                # exactly what the bot READ, re-typed like quoting a chat.
+                # Page stays sharp with a light dim so cards read as focus.
                 strip_dim = seg_dir / f"stripd_{i:03d}.png"
                 with Image.open(strip) as _s:
-                    ImageEnhance.Brightness(_s.convert("RGB")).enhance(0.82) \
+                    ImageEnhance.Brightness(_s.convert("RGB")).enhance(0.80) \
                         .save(strip_dim)
-                with Image.open(shot_path) as _sh:
-                    shot_w0, shot_h0 = _sh.size
                 evidence = {"strip": strip_dim, "strip_h": strip_h,
-                            "source": source, "cards": cards,
-                            "shot_w": shot_w0, "shot_h": shot_h0}
+                            "source": source, "cards": cards}
             elif strip_h > H * 1.15:   # tall enough to scroll through
                 evidence = {"strip": strip, "strip_h": strip_h,
                             "source": source}
@@ -454,37 +490,28 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
         vf_extra += f",subtitles='{ass}':fontsdir='{ASSETS / 'fonts'}'"
 
     if evidence and evidence.get("cards"):
-        # POP-CARD PROOF with LOCK-ON SCROLL: the page glides to where each
-        # highlighted comment actually lives, HOLDS there while its card is
-        # up, then glides to the next. It never drifts past the last
-        # highlight (no meaningless footer scrolling).
+        # QUOTE-CARD PROOF: real page behind (sharp, light dim) scrolls in
+        # short realistic steps — scroll a bit, PAUSE while a quote card is
+        # read, scroll again. Scrolling covers only the top 60% of the page
+        # content (never the footer).
         strip_h = evidence["strip_h"]
         cards = evidence["cards"]
-        scroll_range = max(1, strip_h - H)
+        scroll_range = int(max(0, min(strip_h - H, strip_h * 0.6 - H * 0.5)))
         n_cards = len(cards)
         slot = max(1.2, (dur - 0.6) / n_cards)
+        times = [min(0.35 + cn * slot, max(0.35, dur - 1.0))
+                 for cn in range(n_cards)]
+        tends = [min(dur, t0 + slot + 0.25) for t0 in times]
 
-        # --- map each highlight's position on the page -> strip crop y ----
-        bar_h = int(H * 0.045)
-        y_off = int(H * 0.03) + bar_h          # strip header offset
-        sc = (W * 0.94) / max(1, evidence.get("shot_w", W))
-        locks, times, tends = [], [], []
-        for cn, card in enumerate(cards):
-            t0 = min(0.35 + cn * slot, max(0.35, dur - 1.0))
-            t1 = min(dur, t0 + slot + 0.25)    # slight overlap feels lively
-            times.append(t0); tends.append(t1)
-            yc = y_off + card.get("y_center_pct", 50.0) / 100.0 \
-                * evidence.get("shot_h", strip_h) * sc
-            # put the highlighted region around mid-frame
-            locks.append(int(max(0, min(scroll_range, yc - H * 0.42))))
-
-        # --- piecewise scroll: settle-in -> hold -> glide -> hold ... -----
-        keys = [(0.0, max(0, locks[0] - int(H * 0.25)))]   # gentle settle-in
+        # piecewise: HOLD while each card is up, GLIDE between cards
+        step = scroll_range // max(1, n_cards - 1) if n_cards > 1 else 0
+        keys = [(0.0, 0)]
         for cn in range(n_cards):
-            keys.append((times[cn], locks[cn]))            # arrive with card
+            ylock = min(scroll_range, cn * step)
+            keys.append((times[cn], ylock))               # arrive with card
             hold_until = times[cn + 1] - 0.55 if cn + 1 < n_cards else dur
             if hold_until > times[cn] + 0.05:
-                keys.append((min(hold_until, dur), locks[cn]))  # HOLD static
+                keys.append((min(hold_until, dur), ylock))  # HOLD static
         yexpr = f"{keys[-1][1]}"
         for (ta, ya), (tb, yb) in reversed(list(zip(keys, keys[1:]))):
             d = max(0.05, tb - ta)

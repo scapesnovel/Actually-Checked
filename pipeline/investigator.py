@@ -195,6 +195,35 @@ def screenshot_pages(subject: str, site: str | None, topic_slug: str,
             try:
                 page.goto(url, timeout=35000, wait_until="domcontentloaded")
                 page.wait_for_timeout(3500)
+                # KILL cookie walls / consent banners so they never appear
+                # in the proof footage (click accept, then hard-remove any
+                # leftover overlays from the DOM)
+                for sel in ["#onetrust-accept-btn-handler",
+                            "button:has-text('Got it')",
+                            "button:has-text('Accept all')",
+                            "button:has-text('Accept All')",
+                            "button:has-text('I agree')",
+                            "button:has-text('Accept')",
+                            "[aria-label='Accept all']"]:
+                    try:
+                        page.locator(sel).first.click(timeout=1200)
+                        page.wait_for_timeout(500)
+                        break
+                    except Exception:
+                        continue
+                try:
+                    page.evaluate("""() => {
+                        const kill = /cookie|consent|onetrust|gdpr|privacy-banner/i;
+                        document.querySelectorAll('div,section,aside').forEach(el => {
+                            const s = getComputedStyle(el);
+                            if ((s.position === 'fixed' || s.position === 'sticky') &&
+                                kill.test(el.id + ' ' + el.className + ' ' +
+                                          (el.textContent || '').slice(0, 200)))
+                                el.remove();
+                        });
+                    }""")
+                except Exception:
+                    pass
                 # nudge lazy content to load before the tall capture
                 for _ in range(3):
                     page.mouse.wheel(0, 900)
@@ -244,16 +273,16 @@ Return JSON:
     ratings, star scores, review counts, claims, headlines. Only what is
     truly visible, never invented),
  "visible_rating": str|null (e.g. "2.9/5 from 11,203 reviews" if visible),
- "highlights": [up to 4 of the most quotable regions — a single user review,
-    a rating block, a marketing claim. STRICT: every highlight MUST contain
-    real readable sentence(s) or a rating number. NEVER highlight search
-    boxes, nav bars, buttons, empty space, footers, or link lists — if the
-    page has no meaningful quotable region, return an empty list. Each:
+ "highlights": [up to 4 of the most QUOTABLE things on the page — these are
+    RE-TYPED on clean quote cards in the video (like quoting someone in a
+    chat), so the TEXT is what matters: it must be VERBATIM, complete, and
+    meaningful. A single user review, a rating with its review count, a
+    marketing claim, a headline. STRICT: real readable sentence(s) or a
+    rating number only. NEVER quote search boxes, nav bars, buttons,
+    cookie banners, footers, or link lists — if the page has nothing
+    meaningful, return an empty list. Each:
     {{"kind": "review"|"rating"|"claim"|"headline",
-      "text": str (the visible text, verbatim, <=220 chars),
-      "y_top_pct": float (0-100, top of the region as % of image height),
-      "y_bottom_pct": float (0-100, bottom of region; keep the region
-         TIGHT around the text block, 5-20% tall typically)}}]
+      "text": str (the visible text, VERBATIM, <=220 chars)}}]
 }}""", s["path"])
             s["usable"] = bool(info.get("usable"))
             s["reads"] = info.get("summary", "")
@@ -261,11 +290,11 @@ Return JSON:
             hl = []
             for h in (info.get("highlights") or [])[:4]:
                 try:
-                    yt = max(0.0, min(99.0, float(h["y_top_pct"])))
-                    yb = max(yt + 2.0, min(100.0, float(h["y_bottom_pct"])))
-                    hl.append({"kind": h.get("kind", "review"),
-                               "text": (h.get("text") or "")[:220],
-                               "y_top_pct": yt, "y_bottom_pct": yb})
+                    txt = (h.get("text") or "").strip()
+                    kind = h.get("kind", "review")
+                    if len(txt) < (4 if kind == "rating" else 18):
+                        continue     # nothing meaningful to quote
+                    hl.append({"kind": kind, "text": txt[:220]})
                 except Exception:
                     continue
             s["highlights"] = hl
@@ -331,14 +360,36 @@ visuals the video will display, so findings MUST be consistent with them):
               'quotable': [h['text'] for h in s.get('highlights', [])]}
              for s in dossier['screenshots']], indent=1)[:6000]}
 
+Think like a seasoned investigator giving a friend a REAL answer — nuanced,
+never a lazy binary "scam / not scam". Weigh BOTH sides honestly. Look for
+PATTERNS in complaints (e.g. "small cashouts succeed but accounts with large
+balances get restricted", "old reviews good, recent ones bad", "problems
+cluster around offers where users spend their own money"). Note the company
+behind it if present in the dossier. If experiences seem to vary by region,
+say results/payouts "vary a lot depending on where you live" as GENERAL
+knowledge — NEVER name or single out any specific country.
+
 Return JSON:
 {{"verdict": "legit"|"scam_likely"|"mixed"|"works"|"doesnt_work"|"unverified",
  "confidence": "high"|"medium"|"low",
+ "scores": {{"legitimacy": int 0-10 (is it a real thing that actually pays/
+      works at all?), "reliability": int 0-10 (can you COUNT on it — support,
+      consistent payouts, no surprise restrictions?)}} — these two often
+    differ, and that gap IS the story (e.g. "real platform: 6/10 legit, but
+    only 3/10 reliable"),
  "what_it_claims": str (1-2 sentences: what the app/site promises users,
     from its own marketing — the video opens with this),
  "rating_stats": str|null (concrete numbers if present in the dossier, e.g.
     "Trustpilot TrustScore 2.3 from 1,204 reviews — 58% are 1-star". Only
     real numbers from the dossier, never invented),
+ "strongest_evidence_for": [2-4 bullets: the best evidence it's real/works,
+    each naming its source — steelman the positive side honestly],
+ "strongest_evidence_against": [2-4 bullets: the most serious red flags,
+    each naming its source],
+ "the_pattern": str|null (the recurring STORY across complaints if one
+    exists, e.g. "user completes offers -> balance grows -> withdrawal
+    triggers restriction -> support goes silent". Only if genuinely
+    supported by multiple pieces of evidence; else null),
  "key_findings": [6-10 specific evidence-backed bullet points, each naming
     its source (Trustpilot / Reddit r/sub / web search / official site / BBB)],
  "red_flags": [list],
@@ -347,8 +398,11 @@ Return JSON:
     each with where it came from — the narrator reads these on camera],
  "risk_assessment": str (2-3 sentences: what a user actually risks by trying
     this — time, money, personal data — grounded in the evidence),
- "way_forward": str (2-3 sentences of practical advice: what to do/check
-    before trying, e.g. start small, never pay upfront, read recent reviews),
+ "way_forward": [3-5 short numbered RULES a smart user should follow if they
+    try it anyway, practical and specific — e.g. "Rule 1: never deposit your
+    own money", "Rule 2: test a small withdrawal early before grinding",
+    "Rule 3: screenshot every offer's terms before starting". Ground each
+    rule in what the evidence showed],
  "sources": [list of the URLs actually used]}}""", temperature=0.4)
     dossier["findings"] = distill
     (WORK_DIR / slug).mkdir(parents=True, exist_ok=True)
