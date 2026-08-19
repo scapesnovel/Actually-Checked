@@ -82,8 +82,13 @@ BRAND_ALERT = (255, 71, 87)    # red — scam energy
 
 
 def _run(cmd: list[str]):
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL,
-                   stderr=subprocess.DEVNULL)
+    p = subprocess.run(cmd, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.PIPE)
+    if p.returncode != 0:
+        tail = p.stderr.decode(errors="replace")[-3000:]
+        print(f"\n--- ffmpeg failed (exit {p.returncode}) ---\n{tail}\n---",
+              flush=True)
+        raise subprocess.CalledProcessError(p.returncode, cmd)
 
 
 def _dur(path) -> float:
@@ -433,8 +438,20 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
                 # Page stays sharp with a light dim so cards read as focus.
                 strip_dim = seg_dir / f"stripd_{i:03d}.png"
                 with Image.open(strip) as _s:
-                    ImageEnhance.Brightness(_s.convert("RGB")).enhance(0.80) \
-                        .save(strip_dim)
+                    dimmed = ImageEnhance.Brightness(
+                        _s.convert("RGB")).enhance(0.80)
+                    # short pages can be SHORTER (or narrower) than the
+                    # video frame — pad to full size or crop=WxH fails
+                    if dimmed.height < H or dimmed.width < W:
+                        canvas = Image.new("RGB",
+                                           (max(W, dimmed.width),
+                                            max(H, dimmed.height)), BRAND_BG)
+                        canvas.paste(dimmed,
+                                     ((canvas.width - dimmed.width) // 2,
+                                      (canvas.height - dimmed.height) // 2))
+                        dimmed = canvas
+                        strip_h = dimmed.height
+                    dimmed.save(strip_dim)
                 evidence = {"strip": strip_dim, "strip_h": strip_h,
                             "source": source, "cards": cards}
             elif strip_h > H * 1.15:   # tall enough to scroll through
