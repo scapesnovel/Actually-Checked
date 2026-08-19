@@ -245,7 +245,10 @@ Return JSON:
     truly visible, never invented),
  "visible_rating": str|null (e.g. "2.9/5 from 11,203 reviews" if visible),
  "highlights": [up to 4 of the most quotable regions — a single user review,
-    a rating block, a marketing claim. Each:
+    a rating block, a marketing claim. STRICT: every highlight MUST contain
+    real readable sentence(s) or a rating number. NEVER highlight search
+    boxes, nav bars, buttons, empty space, footers, or link lists — if the
+    page has no meaningful quotable region, return an empty list. Each:
     {{"kind": "review"|"rating"|"claim"|"headline",
       "text": str (the visible text, verbatim, <=220 chars),
       "y_top_pct": float (0-100, top of the region as % of image height),

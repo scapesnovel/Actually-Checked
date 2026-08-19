@@ -215,11 +215,24 @@ def make_highlight_cards(shot_path: str, highlights: list[dict],
     cards = []
     for n, h in enumerate(highlights[:4]):
         try:
+            txt = (h.get("text") or "").strip()
+            kind = h.get("kind", "review")
+            # QUALITY GATE: skip meaningless highlights (empty search boxes,
+            # nav bars, one-word nothings) — they make the video look sloppy
+            min_len = 4 if kind == "rating" else 18
+            if len(txt) < min_len:
+                continue
             yt = int(ih * h["y_top_pct"] / 100.0)
             yb = int(ih * h["y_bottom_pct"] / 100.0)
+            if yb - yt < ih * 0.012:      # region too thin to hold real text
+                continue
             # a little context padding
             pad = int(ih * 0.008)
             crop = shot.crop((0, max(0, yt - pad), iw, min(ih, yb + pad)))
+            # QUALITY GATE 2: reject near-blank crops (uniform background)
+            from PIL import ImageStat
+            if ImageStat.Stat(crop.convert("L")).stddev[0] < 8:
+                continue
             # scale card to ~86% of frame width
             cw = int(W * 0.86)
             crop = crop.resize((cw, int(crop.height * cw / crop.width)),
@@ -252,7 +265,8 @@ def make_highlight_cards(shot_path: str, highlights: list[dict],
             d.text((fs * 0.8, 2), tag, font=f, fill=BRAND_ACCENT + (255,))
             p = seg_dir / f"hcard_{i:03d}_{n}.png"
             card.save(p)
-            cards.append({"path": p, "w": card.width, "h": card.height})
+            cards.append({"path": p, "w": card.width, "h": card.height,
+                          "y_center_pct": (h["y_top_pct"] + h["y_bottom_pct"]) / 2.0})
         except Exception:
             continue
     return cards
@@ -374,17 +388,19 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
             strip_w, strip_h = frame_screenshot_scroll(shot_path, strip, size,
                                                        source)
             if cards:
-                # POP-CARD mode: page scrolls softly behind while the exact
-                # comments/ratings/claims pop on top one by one, big & clear.
-                # Pre-blur + dim the strip ONCE with PIL — doing gblur in
-                # ffmpeg per-frame is brutally slow on tall strips.
-                strip_blur = seg_dir / f"stripb_{i:03d}.png"
+                # POP-CARD mode: the page LOCKS onto each highlighted region
+                # while its card is up, and only glides between them (never
+                # drifts to the footer). Page stays SHARP — just a light dim
+                # so the popped card reads as the focus.
+                strip_dim = seg_dir / f"stripd_{i:03d}.png"
                 with Image.open(strip) as _s:
-                    _b = _s.convert("RGB").filter(ImageFilter.GaussianBlur(8))
-                    _b = ImageEnhance.Brightness(_b).enhance(0.72)
-                    _b.save(strip_blur)
-                evidence = {"strip": strip_blur, "strip_h": strip_h,
-                            "source": source, "cards": cards}
+                    ImageEnhance.Brightness(_s.convert("RGB")).enhance(0.82) \
+                        .save(strip_dim)
+                with Image.open(shot_path) as _sh:
+                    shot_w0, shot_h0 = _sh.size
+                evidence = {"strip": strip_dim, "strip_h": strip_h,
+                            "source": source, "cards": cards,
+                            "shot_w": shot_w0, "shot_h": shot_h0}
             elif strip_h > H * 1.15:   # tall enough to scroll through
                 evidence = {"strip": strip, "strip_h": strip_h,
                             "source": source}
@@ -438,28 +454,57 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
         vf_extra += f",subtitles='{ass}':fontsdir='{ASSETS / 'fonts'}'"
 
     if evidence and evidence.get("cards"):
-        # POP-CARD PROOF: page scrolls dimmed/soft in the background while
-        # each highlighted comment/rating/claim POPS on top one by one —
-        # crystal clear, covering only what it must
+        # POP-CARD PROOF with LOCK-ON SCROLL: the page glides to where each
+        # highlighted comment actually lives, HOLDS there while its card is
+        # up, then glides to the next. It never drifts past the last
+        # highlight (no meaningless footer scrolling).
         strip_h = evidence["strip_h"]
         cards = evidence["cards"]
         scroll_range = max(1, strip_h - H)
-        yexpr = f"min({scroll_range},t*{scroll_range}/{max(2.0, dur):.2f})"
-        base = f"crop={W}:{H}:0:'{yexpr}',setsar=1"  # strip pre-blurred/dimmed
+        n_cards = len(cards)
+        slot = max(1.2, (dur - 0.6) / n_cards)
+
+        # --- map each highlight's position on the page -> strip crop y ----
+        bar_h = int(H * 0.045)
+        y_off = int(H * 0.03) + bar_h          # strip header offset
+        sc = (W * 0.94) / max(1, evidence.get("shot_w", W))
+        locks, times, tends = [], [], []
+        for cn, card in enumerate(cards):
+            t0 = min(0.35 + cn * slot, max(0.35, dur - 1.0))
+            t1 = min(dur, t0 + slot + 0.25)    # slight overlap feels lively
+            times.append(t0); tends.append(t1)
+            yc = y_off + card.get("y_center_pct", 50.0) / 100.0 \
+                * evidence.get("shot_h", strip_h) * sc
+            # put the highlighted region around mid-frame
+            locks.append(int(max(0, min(scroll_range, yc - H * 0.42))))
+
+        # --- piecewise scroll: settle-in -> hold -> glide -> hold ... -----
+        keys = [(0.0, max(0, locks[0] - int(H * 0.25)))]   # gentle settle-in
+        for cn in range(n_cards):
+            keys.append((times[cn], locks[cn]))            # arrive with card
+            hold_until = times[cn + 1] - 0.55 if cn + 1 < n_cards else dur
+            if hold_until > times[cn] + 0.05:
+                keys.append((min(hold_until, dur), locks[cn]))  # HOLD static
+        yexpr = f"{keys[-1][1]}"
+        for (ta, ya), (tb, yb) in reversed(list(zip(keys, keys[1:]))):
+            d = max(0.05, tb - ta)
+            if abs(yb - ya) < 1:
+                seg_e = f"{ya}"
+            else:   # smoothstep ease = realistic finger-scroll feel
+                seg_e = (f"{ya}+{yb - ya}*pow(st(1,clip((t-{ta:.2f})/"
+                         f"{d:.2f},0,1)),2)*(3-2*ld(1))")
+            yexpr = f"if(lt(t,{tb:.2f}),{seg_e},{yexpr})"
+
+        base = f"crop={W}:{H}:0:'{yexpr}',setsar=1"  # sharp, lightly dimmed
         cmd = ["ffmpeg", "-y", "-loop", "1", "-i", str(evidence["strip"]),
                "-i", str(audio)]
         subfx = (f",subtitles='{ass}':fontsdir='{ASSETS / 'fonts'}'"
                  if words else "")
         fc = [f"[0:v]{base}{subfx}[bg]"]
         vprev = "[bg]"
-        n_cards = len(cards)
-        slot = max(1.2, (dur - 0.6) / n_cards)
-        times = []
         for cn, card in enumerate(cards):
             cmd += ["-loop", "1", "-i", str(card["path"])]
-            t0 = min(0.35 + cn * slot, max(0.35, dur - 1.0))
-            t1 = min(dur, t0 + slot + 0.25)   # slight overlap feels lively
-            times.append(t0)
+            t0, t1 = times[cn], tends[cn]
             # cards live in the upper 2/3 (captions own the bottom)
             ytar = int(H * 0.14) if n_cards == 1 else \
                 int(H * (0.08 + 0.15 * (cn % 3)))
