@@ -33,6 +33,24 @@ def yt_client():
         client_secret=os.environ["YT_CLIENT_SECRET"],
         token_uri="https://oauth2.googleapis.com/token")
     creds.refresh(Request())
+    # FAIL FAST with a clear message if the token can't upload — much
+    # better than rendering for 25 minutes and dying on the last step.
+    granted = set(getattr(creds, "granted_scopes", None) or
+                  getattr(creds, "scopes", None) or [])
+    print(f"      YouTube token scopes: {sorted(granted) or '(unknown)'}")
+    need = {"https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube",
+            "https://www.googleapis.com/auth/youtube.force-ssl"}
+    if granted and not (granted & need):
+        raise SystemExit(
+            "\nERROR: The YouTube refresh token has NO upload permission.\n"
+            f"Granted scopes: {sorted(granted)}\n\n"
+            "FIX (2 minutes, on your computer):\n"
+            "  1) python scripts/get_refresh_token.py\n"
+            "  2) On the Google consent screen, CHECK ALL the permission "
+            "boxes\n     (especially 'Manage your YouTube videos' / upload)\n"
+            "  3) Update the YT_REFRESH_TOKEN secret in GitHub repo "
+            "Settings ->\n     Secrets and variables -> Actions\n")
     return build("youtube", "v3", credentials=creds)
 
 

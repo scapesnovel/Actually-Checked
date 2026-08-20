@@ -22,6 +22,26 @@ from pipeline.publisher import upload
 def produce(kind: str, dry_run: bool = False):
     print(f"=== ACTUALLY CHECKED · producing {kind}-form video ===")
 
+    if not dry_run:
+        # PRE-FLIGHT: verify the YouTube token can actually upload BEFORE
+        # spending 25 minutes producing a video that then fails to publish.
+        print("[0/7] Pre-flight: checking YouTube upload permission...")
+        from pipeline.publisher import yt_client
+        yt = yt_client()
+        try:
+            yt.channels().list(part="id", mine=True).execute()
+        except Exception as e:
+            if "insufficient" in str(e).lower() or "403" in str(e):
+                raise SystemExit(
+                    "\nERROR: YouTube token is missing permissions "
+                    "(needs upload + manage for thumbnails/comments).\n"
+                    "FIX: re-run scripts/get_refresh_token.py on your "
+                    "computer,\nCHECK ALL permission boxes on the Google "
+                    "consent screen, then update\nthe YT_REFRESH_TOKEN "
+                    "secret in GitHub Settings -> Secrets -> Actions.\n")
+            raise
+        print("      → YouTube auth OK")
+
     print("[1/7] Picking topic from live search demand...")
     topic = pick_topic(kind)
     print(f"      → {topic['topic']}  (pillar: {topic['pillar']})")
