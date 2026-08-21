@@ -5,7 +5,7 @@ and schedules publish for the configured peak slot. Uses a long-lived OAuth
 refresh token stored as a GitHub secret (see scripts/get_refresh_token.py).
 """
 import datetime as dt
-import json, os
+import json, os, re
 
 from zoneinfo import ZoneInfo
 
@@ -116,6 +116,8 @@ def build_description(slug: str, script: dict, seg_meta: list[dict]) -> str:
 
     desc = script["description"]
     desc = desc.replace("{SOURCES}", src_txt).replace("{CHAPTERS}", chapters)
+    if not chapters:  # Shorts: drop a dangling empty "CHAPTERS:" label
+        desc = re.sub(r"\n*CHAPTERS:\s*\n*", "\n", desc)
     footer = cfg["seo"]["description_footer"].replace(
         "{disclaimer}", cfg["safety"]["disclaimer"].strip())
     return (desc + "\n\n" + footer)[:4900]
