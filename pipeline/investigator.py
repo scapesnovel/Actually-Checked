@@ -18,17 +18,38 @@ def _shots_dir(topic_slug: str):
     return d
 
 
+def _unwrap_ddg(url: str) -> str | None:
+    """DDG now wraps results as //duckduckgo.com/l/?uddg=<encoded-real-url>.
+    Unwrap to the real destination; pass plain http(s) urls through."""
+    from urllib.parse import unquote, parse_qs
+    u = url.replace("&amp;", "&")
+    if u.startswith("//"):
+        u = "https:" + u
+    p = urlparse(u)
+    if "duckduckgo.com" in p.netloc and p.path.startswith("/l/"):
+        real = parse_qs(p.query).get("uddg", [None])[0]
+        return unquote(real) if real else None
+    if u.startswith("http"):
+        return u
+    return None
+
+
 def find_official_site(subject: str) -> str | None:
     """DuckDuckGo HTML search (keyless) to locate the subject's site."""
     s = http()
     try:
         r = s.get("https://html.duckduckgo.com/html/",
                   params={"q": subject + " official site"}, timeout=20)
-        links = re.findall(r'href="(https?://[^"]+)"', r.text)
-        for url in links:
+        links = re.findall(r'href="([^"]+)"', r.text)
+        for raw in links:
+            url = _unwrap_ddg(raw)
+            if not url:
+                continue
             host = urlparse(url).netloc.lower()
-            if any(b in host for b in ("duckduckgo", "wikipedia", "youtube",
-                                       "reddit", "facebook", "twitter")):
+            if not host or any(b in host for b in (
+                    "duckduckgo", "wikipedia", "youtube", "reddit",
+                    "facebook", "twitter", "instagram", "linkedin",
+                    "trustpilot", "bbb.org")):
                 continue
             return url.split("&")[0]
     except Exception:
@@ -47,7 +68,8 @@ def ddg_results(query: str, n: int = 8) -> list[dict]:
             r'class="result__snippet"[^>]*>(.*?)</a>', r.text, re.S)
         for url, title, snip in blocks[:n]:
             clean = lambda t: re.sub(r"<[^>]+>", "", t).strip()
-            out.append({"url": url, "title": clean(title),
+            real = _unwrap_ddg(url) or url
+            out.append({"url": real, "title": clean(title),
                         "snippet": clean(snip)})
     except Exception:
         pass

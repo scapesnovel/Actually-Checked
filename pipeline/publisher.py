@@ -78,12 +78,26 @@ def next_publish_time(kind: str) -> str:
 def build_description(slug: str, script: dict, seg_meta: list[dict]) -> str:
     cfg = load_config()
     dossier = json.loads((WORK_DIR / slug / "dossier.json").read_text(encoding="utf-8"))
-    sources = dossier.get("findings", {}).get("sources", []) or []
-    for r in dossier.get("reddit_evidence", []):
-        if r["url"] not in sources:
-            sources.append(r["url"])
-    if dossier.get("official_site") and dossier["official_site"] not in sources:
-        sources.insert(0, dossier["official_site"])
+    # GUARANTEED links first (the ones actually SHOWN in the video), then
+    # whatever else the distill model cited. Viewers must always find the
+    # site being talked about + the review pages we screenshotted.
+    sources = []
+
+    def _add(u):
+        if not (u and u.startswith("http")):
+            return
+        u = u.replace("old.reddit.com", "www.reddit.com").rstrip("/")
+        if u not in sources:
+            sources.append(u)
+
+    _add(dossier.get("official_site"))                       # the subject
+    _add((dossier.get("trustpilot_rating") or {}).get("page"))  # trustpilot
+    for r in dossier.get("reddit_evidence", []):             # reddit threads
+        _add(r.get("url"))
+    for u in dossier.get("topic", {}).get("reddit_urls", []) or []:
+        _add(u)
+    for u in dossier.get("findings", {}).get("sources", []) or []:
+        _add(u)                                              # distill extras
     src_txt = "\n".join(f"• {u}" for u in sources[:12]) or "• Research compiled from public sources"
 
     # chapters from segment timings (long-form only)
