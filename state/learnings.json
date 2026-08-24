@@ -1,0 +1,17 @@
+{
+  "pillar_boost": {
+    "money": 0.8,
+    "scam": 1.5,
+    "viral": 1.0
+  },
+  "title_patterns_that_work": [
+    "Parenthetical validation hooks like '(I Checked)' or '(Proof Inside)'",
+    "Direct brand investigation framing (e.g., 'Should You Trust [Brand]?' or 'Does [Brand] Actually Pay...?')",
+    "Shorts format performing significantly better than long-form videos for this niche"
+  ],
+  "title_patterns_to_avoid": [
+    "Vague urgency without strong brand naming",
+    "Long-form deep dives without pre-established audience trust (underperforming at 1-3 views)"
+  ],
+  "notes": "Shorts significantly outperform long-form videos, with Zocdoc and WeWard generating the highest views (37 and 18 respectively). Content focusing on verifying popular consumer apps and trust/scam elements drives the most engagement."
+}
