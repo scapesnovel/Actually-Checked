@@ -52,5 +52,11 @@
     "topic": "Is B&H Photo legit?",
     "kind": "short",
     "ts": 1787649490
+  },
+  {
+    "slug_root": "is seatgeek legit?",
+    "topic": "Is SeatGeek Legit?",
+    "kind": "long",
+    "ts": 1787726738
   }
 ]
