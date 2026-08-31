@@ -100,5 +100,11 @@
     "topic": "Does Hims actually work?",
     "kind": "long",
     "ts": 1788180398
+  },
+  {
+    "slug_root": "does freecash actually work?",
+    "topic": "Does Freecash actually work?",
+    "kind": "short",
+    "ts": 1788193224
   }
 ]
