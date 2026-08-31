@@ -1,17 +1,17 @@
 {
   "pillar_boost": {
     "money": 0.8,
-    "scam": 1.5,
+    "scam": 1.2,
     "viral": 1.0
   },
   "title_patterns_that_work": [
-    "Parenthetical validation hooks like '(I Checked)' or '(Proof Inside)'",
-    "Direct brand investigation framing (e.g., 'Should You Trust [Brand]?' or 'Does [Brand] Actually Pay...?')",
-    "Shorts format performing significantly better than long-form videos for this niche"
+    "Use parenthetical curiosity hooks like '(The Truth)' or '(I Checked)'",
+    "Target popular e-commerce platforms and apps (e.g., DHgate, Zocdoc, WeWard)",
+    "Clearly format as a Short with '#Shorts' as it drives significantly higher discovery compared to long-form content"
   ],
   "title_patterns_to_avoid": [
-    "Vague urgency without strong brand naming",
-    "Long-form deep dives without pre-established audience trust (underperforming at 1-3 views)"
+    "Long-form review formats without strong upfront urgency",
+    "Generic titles lacking a specific platform or app name"
   ],
-  "notes": "Shorts significantly outperform long-form videos, with Zocdoc and WeWard generating the highest views (37 and 18 respectively). Content focusing on verifying popular consumer apps and trust/scam elements drives the most engagement."
+  "notes": "Shorts consistently outperform long-form videos significantly in terms of views, with topics focusing on consumer safety and legitimacy (e.g., DHgate, WeWard, Zocdoc) driving the best engagement."
 }
