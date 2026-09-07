@@ -1,17 +1,18 @@
 {
   "pillar_boost": {
     "money": 0.8,
-    "scam": 1.2,
-    "viral": 1.0
+    "scam": 1.4,
+    "viral": 1.1
   },
   "title_patterns_that_work": [
-    "Use parenthetical curiosity hooks like '(The Truth)' or '(I Checked)'",
-    "Target popular e-commerce platforms and apps (e.g., DHgate, Zocdoc, WeWard)",
-    "Clearly format as a Short with '#Shorts' as it drives significantly higher discovery compared to long-form content"
+    "Directly questioning legitimacy using 'Legit' or 'Scam' with parenthetical context",
+    "Using action-oriented verification phrases like '(I Checked)' or '(Proof Inside)'",
+    "Capitalizing on trending or high-curiosity consumer apps and platforms"
   ],
   "title_patterns_to_avoid": [
-    "Long-form review formats without strong upfront urgency",
-    "Generic titles lacking a specific platform or app name"
+    "Vague framing without mentioning specific brands or apps",
+    "Overly lengthy titles that lose the core value proposition before truncation",
+    "Generic curiosity gaps that lack immediate relevance to consumer trust"
   ],
-  "notes": "Shorts consistently outperform long-form videos significantly in terms of views, with topics focusing on consumer safety and legitimacy (e.g., DHgate, WeWard, Zocdoc) driving the best engagement."
+  "notes": "Shorts significantly outperform long-form content across almost all categories, with consumer app reviews and scam-checking angles generating the highest view counts (e.g., Cashify, WeWard, Zocdoc)."
 }
