@@ -190,5 +190,11 @@
     "topic": "Is Mansa X legit?",
     "kind": "long",
     "ts": 1789123309
+  },
+  {
+    "slug_root": "is incogni legit?",
+    "topic": "Is Incogni legit?",
+    "kind": "short",
+    "ts": 1789131709
   }
 ]
