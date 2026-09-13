@@ -202,5 +202,11 @@
     "topic": "Should you trust the Yuka app?",
     "kind": "short",
     "ts": 1789215559
+  },
+  {
+    "slug_root": "can you trust xe",
+    "topic": "Can you trust XE Money Transfer?",
+    "kind": "short",
+    "ts": 1789305998
   }
 ]
