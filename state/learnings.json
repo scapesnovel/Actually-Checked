@@ -1,18 +1,18 @@
 {
   "pillar_boost": {
-    "money": 0.8,
+    "money": 1.25,
     "scam": 1.4,
     "viral": 1.1
   },
   "title_patterns_that_work": [
-    "Directly questioning legitimacy using 'Legit' or 'Scam' with parenthetical context",
-    "Using action-oriented verification phrases like '(I Checked)' or '(Proof Inside)'",
-    "Capitalizing on trending or high-curiosity consumer apps and platforms"
+    "Include explicit proof hooks like '(Proof Inside)' or 'I Checked the Data'",
+    "Target consumer apps and shopping platforms (Zocdoc, WeWard, Cashify, DHgate)",
+    "Use high-urgency keywords addressing legitimacy and safety ('Scam', 'Trust', 'Legit')"
   ],
   "title_patterns_to_avoid": [
-    "Vague framing without mentioning specific brands or apps",
-    "Overly lengthy titles that lose the core value proposition before truncation",
-    "Generic curiosity gaps that lack immediate relevance to consumer trust"
+    "Generic brand investigation titles without a strong consumer pain point",
+    "Overly long or dry analytical phrases in long-form titles that fail to trigger curiosity",
+    "Titles missing clear categorization or high-intent search terms"
   ],
-  "notes": "Shorts significantly outperform long-form content across almost all categories, with consumer app reviews and scam-checking angles generating the highest view counts (e.g., Cashify, WeWard, Zocdoc)."
+  "notes": "Short-form videos overwhelmingly outperform long-form content across all topics, with verified apps and scam-check queries (e.g., Cashify, WeWard, Zocdoc) generating the highest view counts. Long-form videos struggle significantly to break baseline median views, suggesting a strong audience preference for quick, punchy verdict-driven content over deep dives."
 }
