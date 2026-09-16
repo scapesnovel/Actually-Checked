@@ -226,5 +226,11 @@
     "topic": "Is H&R Block tax software installing a TLS backdoor?",
     "kind": "short",
     "ts": 1789480182
+  },
+  {
+    "slug_root": "should you trust opera",
+    "topic": "Should you trust Opera GX?",
+    "kind": "long",
+    "ts": 1789556115
   }
 ]
