@@ -238,5 +238,11 @@
     "topic": "Is Sweatcoin real or fake?",
     "kind": "short",
     "ts": 1789566189
+  },
+  {
+    "slug_root": "does exitlag actually work?",
+    "topic": "Does ExitLag actually work?",
+    "kind": "short",
+    "ts": 1789652667
   }
 ]
