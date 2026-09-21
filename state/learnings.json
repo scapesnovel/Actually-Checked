@@ -1,18 +1,20 @@
 {
   "pillar_boost": {
-    "money": 1.25,
-    "scam": 1.4,
-    "viral": 1.1
+    "money": 2.8,
+    "scam": 2.1,
+    "viral": 1.2
   },
   "title_patterns_that_work": [
-    "Include explicit proof hooks like '(Proof Inside)' or 'I Checked the Data'",
-    "Target consumer apps and shopping platforms (Zocdoc, WeWard, Cashify, DHgate)",
-    "Use high-urgency keywords addressing legitimacy and safety ('Scam', 'Trust', 'Legit')"
+    "Does [Walk-to-Earn/Payout App] Actually Pay You? (I Checked) #Shorts",
+    "Is [Well-Known Platform] Legit or a [Scam/Ticket Scam]? #Shorts",
+    "Should You Trust [Recognizable Brand/Service]? (I Checked The Data) #Shorts",
+    "Can You Actually Trust [Marketplace]? (The Truth) #Shorts"
   ],
   "title_patterns_to_avoid": [
-    "Generic brand investigation titles without a strong consumer pain point",
-    "Overly long or dry analytical phrases in long-form titles that fail to trigger curiosity",
-    "Titles missing clear categorization or high-intent search terms"
+    "Niche or obscure B2B/technical security hooks (e.g., 'Installing a TLS Backdoor')",
+    "Long-form deep dives on low-search apps without Shorts pairing (e.g., 'I Checked The Catch You App... Here's Why You Should Wait')",
+    "Health supplement verification on obscure products (e.g., 'Does Prevagen Actually Work?')",
+    "Passive long-form titles ending with '...(Proof Inside)' or '...(What I Found)'"
   ],
-  "notes": "Short-form videos overwhelmingly outperform long-form content across all topics, with verified apps and scam-check queries (e.g., Cashify, WeWard, Zocdoc) generating the highest view counts. Long-form videos struggle significantly to break baseline median views, suggesting a strong audience preference for quick, punchy verdict-driven content over deep dives."
+  "notes": "Shorts heavily outperform long-form across the board, driving almost all view spikes (up to 255 views vs long-form ceiling of 48). Content centered on 'make money / payout verification' (Sweatcoin, WeWard, Cashify, Honeygain) massively outperforms the median of 16 views. High-brand-recognition scam/trust audits also overperform, whereas technical cybersecurity topics and obscure apps fail to gain traction."
 }
