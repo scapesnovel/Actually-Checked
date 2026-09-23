@@ -292,5 +292,11 @@
     "topic": "Should you trust National Debt Relief?",
     "kind": "short",
     "ts": 1790084343
+  },
+  {
+    "slug_root": "does x actually pay",
+    "topic": "Does X actually pay creators?",
+    "kind": "long",
+    "ts": 1790160610
   }
 ]
