@@ -298,5 +298,11 @@
     "topic": "Does X actually pay creators?",
     "kind": "long",
     "ts": 1790160610
+  },
+  {
+    "slug_root": "is german court ruling",
+    "topic": "Is German court ruling Meta liable for scam ads true?",
+    "kind": "short",
+    "ts": 1790171406
   }
 ]
