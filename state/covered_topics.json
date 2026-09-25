@@ -310,5 +310,11 @@
     "topic": "Can you trust Kiwi.com?",
     "kind": "short",
     "ts": 1790257483
+  },
+  {
+    "slug_root": "does at&t actually pay",
+    "topic": "Does AT&T actually pay off your phone?",
+    "kind": "long",
+    "ts": 1790334675
   }
 ]
