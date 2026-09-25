@@ -316,5 +316,11 @@
     "topic": "Does AT&T actually pay off your phone?",
     "kind": "long",
     "ts": 1790334675
+  },
+  {
+    "slug_root": "should you trust vivid",
+    "topic": "Should you trust Vivid Seats tickets?",
+    "kind": "short",
+    "ts": 1790345227
   }
 ]
