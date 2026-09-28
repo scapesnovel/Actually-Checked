@@ -340,5 +340,11 @@
     "topic": "Is Z League legit?",
     "kind": "long",
     "ts": 1790600626
+  },
+  {
+    "slug_root": "should i trust rocket",
+    "topic": "Should I trust Rocket Money?",
+    "kind": "short",
+    "ts": 1790614745
   }
 ]
