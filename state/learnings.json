@@ -1,20 +1,20 @@
 {
   "pillar_boost": {
-    "money": 2.8,
-    "scam": 2.1,
-    "viral": 1.2
+    "money": 1.65,
+    "scam": 1.95,
+    "viral": 1.35
   },
   "title_patterns_that_work": [
-    "Does [Walk-to-Earn/Payout App] Actually Pay You? (I Checked) #Shorts",
-    "Is [Well-Known Platform] Legit or a [Scam/Ticket Scam]? #Shorts",
-    "Should You Trust [Recognizable Brand/Service]? (I Checked The Data) #Shorts",
-    "Can You Actually Trust [Marketplace]? (The Truth) #Shorts"
+    "I Checked If [Brand] Is A Scam... (The Truth)",
+    "Is [Brand] Actually Legit? (I Checked The Data)",
+    "Is [Brand] Legit or a [Category] Scam? (The Real Ratings)",
+    "Can You Actually Trust [Brand]? (The Truth)"
   ],
   "title_patterns_to_avoid": [
-    "Niche or obscure B2B/technical security hooks (e.g., 'Installing a TLS Backdoor')",
-    "Long-form deep dives on low-search apps without Shorts pairing (e.g., 'I Checked The Catch You App... Here's Why You Should Wait')",
-    "Health supplement verification on obscure products (e.g., 'Does Prevagen Actually Work?')",
-    "Passive long-form titles ending with '...(Proof Inside)' or '...(What I Found)'"
+    "Overly technical or niche queries (e.g., 'Is [Brand] Installing a TLS Backdoor?')",
+    "Obscure B2B/developer utilities with zero search demand (e.g., 'Is Ax-check.com Legit?')",
+    "Weak negative hooks lacking emotional charge (e.g., 'I Checked [Brand]… Don't Buy Yet')",
+    "Medical/wellness efficacy queries without scam/drama angle (e.g., 'Does [Product] Actually Work?')"
   ],
-  "notes": "Shorts heavily outperform long-form across the board, driving almost all view spikes (up to 255 views vs long-form ceiling of 48). Content centered on 'make money / payout verification' (Sweatcoin, WeWard, Cashify, Honeygain) massively outperforms the median of 16 views. High-brand-recognition scam/trust audits also overperform, whereas technical cybersecurity topics and obscure apps fail to gain traction."
+  "notes": "Shorts addressing active consumer skepticism ('Scam or Legit') on mass-market money apps (Cashify, Sweatcoin, Honeygain) and popular marketplace platforms (StubHub, DHgate, StockX) drastically outperform median views (17.0). Niche technical audits, low-search developer tools, and generic product efficacy checks fail to find an audience."
 }
