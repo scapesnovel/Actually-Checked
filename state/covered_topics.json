@@ -346,5 +346,11 @@
     "topic": "Should I trust Rocket Money?",
     "kind": "short",
     "ts": 1790614745
+  },
+  {
+    "slug_root": "can i trust x",
+    "topic": "Can I trust X VPN?",
+    "kind": "short",
+    "ts": 1790694049
   }
 ]
