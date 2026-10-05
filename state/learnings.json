@@ -1,20 +1,17 @@
 {
   "pillar_boost": {
-    "money": 1.65,
-    "scam": 1.95,
-    "viral": 1.35
+    "money": 1.1,
+    "scam": 1.4,
+    "viral": 1.2
   },
   "title_patterns_that_work": [
-    "I Checked If [Brand] Is A Scam... (The Truth)",
-    "Is [Brand] Actually Legit? (I Checked The Data)",
-    "Is [Brand] Legit or a [Category] Scam? (The Real Ratings)",
-    "Can You Actually Trust [Brand]? (The Truth)"
+    "Using parentheses for emphasis like '(The Truth)' or '(I Checked The Data)'",
+    "Direct investigation formats such as 'Is [Brand] Legit or a Ticket Scam?'",
+    "Short-form videos (#Shorts) targeting popular consumer apps and e-commerce platforms"
   ],
   "title_patterns_to_avoid": [
-    "Overly technical or niche queries (e.g., 'Is [Brand] Installing a TLS Backdoor?')",
-    "Obscure B2B/developer utilities with zero search demand (e.g., 'Is Ax-check.com Legit?')",
-    "Weak negative hooks lacking emotional charge (e.g., 'I Checked [Brand]… Don't Buy Yet')",
-    "Medical/wellness efficacy queries without scam/drama angle (e.g., 'Does [Product] Actually Work?')"
+    "Overly dry corporate investigations without a clear consumer stakes angle",
+    "Long-form deep dives without an immediate high-interest hook in the first few words"
   ],
-  "notes": "Shorts addressing active consumer skepticism ('Scam or Legit') on mass-market money apps (Cashify, Sweatcoin, Honeygain) and popular marketplace platforms (StubHub, DHgate, StockX) drastically outperform median views (17.0). Niche technical audits, low-search developer tools, and generic product efficacy checks fail to find an audience."
+  "notes": "Shorts significantly outperform long-form content on average, especially when dealing with high-intent consumer scam checks and popular shopping platforms (e.g., DHgate, Cashify, StubHub)."
 }
