@@ -1,17 +1,20 @@
 {
   "pillar_boost": {
-    "money": 1.1,
-    "scam": 1.4,
-    "viral": 1.2
+    "money": 1.25,
+    "scam": 1.6,
+    "viral": 1.15
   },
   "title_patterns_that_work": [
-    "Using parentheses for emphasis like '(The Truth)' or '(I Checked The Data)'",
-    "Direct investigation formats such as 'Is [Brand] Legit or a Ticket Scam?'",
-    "Short-form videos (#Shorts) targeting popular consumer apps and e-commerce platforms"
+    "I Checked If [Brand] Is A Scam... (The Truth)",
+    "Is [Brand] Legit or a [Topic] Scam? (The Real Ratings)",
+    "Is [Brand] Actually Legit? (I Checked The Data)",
+    "Can You Actually Trust [Brand]? (The Truth)"
   ],
   "title_patterns_to_avoid": [
-    "Overly dry corporate investigations without a clear consumer stakes angle",
-    "Long-form deep dives without an immediate high-interest hook in the first few words"
+    "Technical jargon hooks like 'Installing a TLS Backdoor'",
+    "Vague qualifiers like '(Mixed Reality)' or '... (What I Found)'",
+    "Targeting obscure micro-niche tools and apps with low search demand (e.g., Ax-check.com, WalkEarn)",
+    "Weak imperative sign-offs like 'Don't Buy Yet'"
   ],
-  "notes": "Shorts significantly outperform long-form content on average, especially when dealing with high-intent consumer scam checks and popular shopping platforms (e.g., DHgate, Cashify, StubHub)."
+  "notes": "Shorts heavily outperform long-form content on this channel (top 5 performers are all Shorts reaching 90-335 views). Content explicitly framing brands around consumer skepticism or scam alerts ('Cashify Is A Scam', 'StubHub Scam', 'Sweatcoin Legit') drives 4x-12x channel median, whereas hyper-technical security or low-demand payout apps consistently stall under 15 views."
 }
