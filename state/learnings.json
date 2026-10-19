@@ -1,20 +1,20 @@
 {
   "pillar_boost": {
-    "money": 1.25,
+    "money": 1.2,
     "scam": 1.6,
-    "viral": 1.15
+    "viral": 1.4
   },
   "title_patterns_that_work": [
-    "I Checked If [Brand] Is A Scam... (The Truth)",
-    "Is [Brand] Legit or a [Topic] Scam? (The Real Ratings)",
-    "Is [Brand] Actually Legit? (I Checked The Data)",
-    "Can You Actually Trust [Brand]? (The Truth)"
+    "Is [Brand] Legit or a [Category] Scam? (The Real Ratings)",
+    "I Checked If [Platform] Is A Scam... (The Truth)",
+    "Is [App] Actually Legit? (I Checked The Data)",
+    "Can You Actually Trust [Viral Brand]? (The Truth)"
   ],
   "title_patterns_to_avoid": [
-    "Technical jargon hooks like 'Installing a TLS Backdoor'",
-    "Vague qualifiers like '(Mixed Reality)' or '... (What I Found)'",
-    "Targeting obscure micro-niche tools and apps with low search demand (e.g., Ax-check.com, WalkEarn)",
-    "Weak imperative sign-offs like 'Don't Buy Yet'"
+    "Niche developer/obscure tool reviews ('Is Ax-check.com Legit?')",
+    "Overly technical IT jargon ('TLS Backdoor')",
+    "Obscure earning sites or low-recognition crypto platforms ('Gen Z Cash', 'WalkEarn', 'Rainbet')",
+    "Vague brand warnings without high curiosity hooks ('Don't Buy Yet')"
   ],
-  "notes": "Shorts heavily outperform long-form content on this channel (top 5 performers are all Shorts reaching 90-335 views). Content explicitly framing brands around consumer skepticism or scam alerts ('Cashify Is A Scam', 'StubHub Scam', 'Sweatcoin Legit') drives 4x-12x channel median, whereas hyper-technical security or low-demand payout apps consistently stall under 15 views."
+  "notes": "Content explicitly testing high-profile marketplace scams (Cashify, StubHub) and popular passive earning apps (Sweatcoin, Honeygain) massively outperforms the 30-view channel median. High-performing titles feature sharp polarization ('Legit or a Scam', 'Actually Legit') paired with objective parentheticals like '(I Checked The Data)' or '(The Truth)'. Videos covering obscure utilities, micro-earning apps, or technical vulnerabilities consistently stall in single digits."
 }
