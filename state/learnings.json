@@ -1,20 +1,17 @@
 {
   "pillar_boost": {
-    "money": 1.2,
-    "scam": 1.6,
-    "viral": 1.4
+    "money": 1.1,
+    "scam": 1.3,
+    "viral": 1.2
   },
   "title_patterns_that_work": [
-    "Is [Brand] Legit or a [Category] Scam? (The Real Ratings)",
-    "I Checked If [Platform] Is A Scam... (The Truth)",
-    "Is [App] Actually Legit? (I Checked The Data)",
-    "Can You Actually Trust [Viral Brand]? (The Truth)"
+    "Using parentheses for parenthetical hooks like '(Data Breakdown)', '(The Truth)', and '(I Checked The Data)'",
+    "Adding '#Shorts' to titles as short-form content consistently drives higher view counts (e.g., StubHub, Cashify, Sweatcoin)",
+    "Direct investigation questions starting with 'Is [Brand] Legit...' or 'Does [Brand] Actually Pay...'"
   ],
   "title_patterns_to_avoid": [
-    "Niche developer/obscure tool reviews ('Is Ax-check.com Legit?')",
-    "Overly technical IT jargon ('TLS Backdoor')",
-    "Obscure earning sites or low-recognition crypto platforms ('Gen Z Cash', 'WalkEarn', 'Rainbet')",
-    "Vague brand warnings without high curiosity hooks ('Don't Buy Yet')"
+    "Vague or purely descriptive titles without high-intent keywords like 'Legit', 'Scam', or 'Trust'",
+    "Long-form formats currently underperforming compared to high-engagement short-form investigative hooks"
   ],
-  "notes": "Content explicitly testing high-profile marketplace scams (Cashify, StubHub) and popular passive earning apps (Sweatcoin, Honeygain) massively outperforms the 30-view channel median. High-performing titles feature sharp polarization ('Legit or a Scam', 'Actually Legit') paired with objective parentheticals like '(I Checked The Data)' or '(The Truth)'. Videos covering obscure utilities, micro-earning apps, or technical vulnerabilities consistently stall in single digits."
+  "notes": "Short-form videos (indicated by #Shorts) significantly outperform long-form content in terms of view velocity, particularly when investigating popular apps, ticket platforms, and e-commerce services for legitimacy or payouts."
 }
