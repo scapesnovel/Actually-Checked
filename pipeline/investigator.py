@@ -70,14 +70,37 @@ def find_official_site(subject: str) -> str | None:
                 return url.split("&")[0]
     except Exception:
         pass
-    # 3) guess the domain from the subject name and probe it
+    # 3) guess the domain from the subject name and probe it.
+    # IMPORTANT: a live page is NOT enough — squatters park every TLD
+    # (we linked rainbet.io / stockx.app by mistake once). Require the
+    # subject's name in the <title> or og:site_name, and treat the usual
+    # parking-page phrases as disqualifying.
     base = re.sub(r"[^a-z0-9]", "", subject.lower())
+    name_words = [w for w in re.findall(r"[a-z0-9]+", subject.lower())
+                  if len(w) > 2]
+    _PARKED = ("domain is for sale", "buy this domain", "parked free",
+               "godaddy", "sedo.com", "dan.com", "afternic",
+               "this domain may be for sale", "domain parking",
+               "premium domain", "domain name (buy now)", "buy now)",
+               "domain for sale", "make an offer", "domain broker",
+               "is for sale", "purchase this domain")
     for cand in (f"https://www.{base}.com", f"https://{base}.com",
                  f"https://www.{base}.app", f"https://www.{base}.io"):
         try:
             r = s.get(cand, timeout=12, allow_redirects=True,
                       headers={"User-Agent": "Mozilla/5.0"})
-            if r.status_code < 400 and len(r.text) > 2000:
+            if r.status_code >= 400 or len(r.text) < 2000:
+                continue
+            low = r.text[:40000].lower()
+            if any(p in low for p in _PARKED):
+                continue
+            m = re.search(r"<title[^>]*>(.*?)</title>", low, re.S)
+            title = (m.group(1) if m else "")
+            m2 = re.search(r'property="og:site_name"\s+content="([^"]+)"', low)
+            site_name = (m2.group(1) if m2 else "")
+            hay = title + " " + site_name
+            if base in re.sub(r"[^a-z0-9]", "", hay) or \
+               (name_words and all(w in hay for w in name_words)):
                 return cand
         except Exception:
             continue
