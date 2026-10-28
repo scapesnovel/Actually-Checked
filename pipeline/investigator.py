@@ -34,26 +34,53 @@ def _unwrap_ddg(url: str) -> str | None:
     return None
 
 
+_SITE_BLOCKLIST = ("duckduckgo", "wikipedia", "youtube", "reddit",
+                   "facebook", "twitter", "instagram", "linkedin",
+                   "trustpilot", "bbb.org", "bing.", "microsoft",
+                   "google.", "apple.com/app", "play.google")
+
+
 def find_official_site(subject: str) -> str | None:
-    """DuckDuckGo HTML search (keyless) to locate the subject's site."""
+    """Locate the subject's official site. Multi-engine because CI
+    datacenter IPs get blocked by individual engines: DDG -> Bing ->
+    guessed-domain probe. Never silently gives up on the first 403."""
     s = http()
+    # 1) DuckDuckGo html (works from residential/sandbox IPs)
     try:
         r = s.get("https://html.duckduckgo.com/html/",
                   params={"q": subject + " official site"}, timeout=20)
-        links = re.findall(r'href="([^"]+)"', r.text)
-        for raw in links:
+        for raw in re.findall(r'href="([^"]+)"', r.text):
             url = _unwrap_ddg(raw)
             if not url:
                 continue
             host = urlparse(url).netloc.lower()
-            if not host or any(b in host for b in (
-                    "duckduckgo", "wikipedia", "youtube", "reddit",
-                    "facebook", "twitter", "instagram", "linkedin",
-                    "trustpilot", "bbb.org")):
-                continue
-            return url.split("&")[0]
+            if host and not any(b in host for b in _SITE_BLOCKLIST):
+                return url.split("&")[0]
     except Exception:
         pass
+    # 2) Bing html (usually reachable from CI runners)
+    try:
+        r = s.get("https://www.bing.com/search",
+                  params={"q": subject + " official site"}, timeout=20,
+                  headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; "
+                           "Win64; x64) AppleWebKit/537.36 Chrome/126.0"})
+        for url in re.findall(r'<h2><a href="(https?://[^"]+)"', r.text):
+            host = urlparse(url).netloc.lower()
+            if host and not any(b in host for b in _SITE_BLOCKLIST):
+                return url.split("&")[0]
+    except Exception:
+        pass
+    # 3) guess the domain from the subject name and probe it
+    base = re.sub(r"[^a-z0-9]", "", subject.lower())
+    for cand in (f"https://www.{base}.com", f"https://{base}.com",
+                 f"https://www.{base}.app", f"https://www.{base}.io"):
+        try:
+            r = s.get(cand, timeout=12, allow_redirects=True,
+                      headers={"User-Agent": "Mozilla/5.0"})
+            if r.status_code < 400 and len(r.text) > 2000:
+                return cand
+        except Exception:
+            continue
     return None
 
 

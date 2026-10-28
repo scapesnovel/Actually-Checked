@@ -90,14 +90,33 @@ def build_description(slug: str, script: dict, seg_meta: list[dict]) -> str:
         if u not in sources:
             sources.append(u)
 
-    _add(dossier.get("official_site"))                       # the subject
-    _add((dossier.get("trustpilot_rating") or {}).get("page"))  # trustpilot
+    site = dossier.get("official_site")
+    _add(site)                                               # the subject
+    tp_page = (dossier.get("trustpilot_rating") or {}).get("page")
+    if not tp_page and site:  # derive the canonical Trustpilot review URL
+        from urllib.parse import urlparse
+        host = urlparse(site).netloc.replace("www.", "")
+        if host:
+            tp_page = f"https://www.trustpilot.com/review/{host}"
+    _add(tp_page)                                            # trustpilot
+    for sshot in dossier.get("screenshots", []) or []:       # pages SHOWN
+        u = sshot.get("url") if isinstance(sshot, dict) else None
+        if u and "bing.com" not in u and "google.com" not in u:
+            _add(u)
     for r in dossier.get("reddit_evidence", []):             # reddit threads
         _add(r.get("url"))
     for u in dossier.get("topic", {}).get("reddit_urls", []) or []:
         _add(u)
     for u in dossier.get("findings", {}).get("sources", []) or []:
-        _add(u)                                              # distill extras
+        # distill model sometimes emits badge labels ("TRUSTPILOT.COM")
+        # instead of URLs — only real links pass _add's http gate
+        _add(u)
+    if not sources:  # absolute last resort: still give viewers SOMETHING
+        subj = dossier.get("topic", {}).get("subject", "")
+        if subj:
+            from urllib.parse import quote_plus
+            _add("https://www.google.com/search?q=" +
+                 quote_plus(subj + " reviews"))
     src_txt = "\n".join(f"• {u}" for u in sources[:12]) or "• Research compiled from public sources"
 
     # chapters from segment timings (long-form only)

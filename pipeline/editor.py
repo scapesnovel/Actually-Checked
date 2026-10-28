@@ -597,23 +597,106 @@ def build_segment(slug: str, i: int, seg: dict, dur: float, words: list[dict],
               "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
               "-pix_fmt", "yuv420p", str(out)])
     elif src_vid is not None:
-        vf = (f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-              f"crop={W}:{H},setsar=1{vf_extra}")
-        _run(["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(src_vid),
-              "-i", str(audio), "-t", f"{dur:.3f}", "-vf", vf,
-              "-af", "apad",
-              "-map", "0:v", "-map", "1:a", "-r", "30",
-              "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
-              "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
-              "-pix_fmt", "yuv420p", str(out)])
+        # MULTI-SHOT EDITING: a long beat never sits on one visual.
+        # Cut it into ~4-5s shots alternating between DIFFERENT b-roll
+        # clips; when a clip repeats, punch in ~22% = new camera angle.
+        clip_pool = [src_vid]
+        if dur > 7.0:
+            q = visual.split(":", 1)[1] if ":" in visual else "computer screen"
+            for vn in range(1, min(3, int(dur // 5)) + 1):
+                extra = fetch_broll(slug, q, i, portrait, variant=vn)
+                if extra and extra not in clip_pool:
+                    clip_pool.append(extra)
+        n_shots = max(1, min(6, round(dur / 4.5)))
+        if n_shots > 1:
+            shot_d = dur / n_shots
+            cmd = ["ffmpeg", "-y"]
+            fc = []
+            for sn in range(n_shots):
+                src = clip_pool[sn % len(clip_pool)]
+                cmd += ["-stream_loop", "-1", "-i", str(src)]
+                # reused clip -> different portion + punch-in = "2nd camera"
+                reuse = sn // len(clip_pool)
+                off = reuse * (shot_d + 2.0)
+                chain = (f"[{sn}:v]trim=start={off:.2f}:"
+                         f"duration={shot_d + 0.05:.3f},setpts=PTS-STARTPTS,"
+                         f"scale={W}:{H}:force_original_aspect_ratio="
+                         f"increase,crop={W}:{H}")
+                if reuse or sn % 2 == 1:
+                    chain += (f",scale={int(W * 1.22)}:{int(H * 1.22)},"
+                              f"crop={W}:{H}")
+                fc.append(chain + f",setsar=1,fps=30[s{sn}]")
+            fc.append("".join(f"[s{sn}]" for sn in range(n_shots)) +
+                      f"concat=n={n_shots}:v=1:a=0,"
+                      f"tpad=stop_mode=clone:stop_duration=1"
+                      f"{vf_extra}[vout]")
+            cmd += ["-i", str(audio),
+                    "-filter_complex", ";".join(fc),
+                    "-map", "[vout]", "-map", f"{n_shots}:a",
+                    "-af", "apad", "-t", f"{dur:.3f}", "-r", "30",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+                    "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                    "-pix_fmt", "yuv420p", str(out)]
+            _run(cmd)
+        else:
+            vf = (f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+                  f"crop={W}:{H},setsar=1{vf_extra}")
+            _run(["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(src_vid),
+                  "-i", str(audio), "-t", f"{dur:.3f}", "-vf", vf,
+                  "-af", "apad",
+                  "-map", "0:v", "-map", "1:a", "-r", "30",
+                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+                  "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                  "-pix_fmt", "yuv420p", str(out)])
     else:
-        _run(["ffmpeg", "-y", "-loop", "1", "-i", str(src_img),
-              "-i", str(audio), "-t", f"{dur:.3f}",
-              "-vf", kb + vf_extra, "-af", "apad",
-              "-map", "0:v", "-map", "1:a",
-              "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
-              "-crf", "21", "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
-              "-pix_fmt", "yuv420p", str(out)])
+        # STILL IMAGE: long beats get MULTIPLE ken-burns "angles" (zoom in
+        # center / pan left / pan right / zoom out) cut together so a
+        # static image never just sits there.
+        n_shots = max(1, min(4, int(dur // 5))) if dur > 8.0 else 1
+        if n_shots > 1:
+            # sequential renders (one zoompan at a time = low memory),
+            # then a cheap concat + captions pass
+            shot_d = dur / n_shots
+            shot_frames = max(2, int(shot_d * 30) + 2)
+            angles = [
+                ("1.0+0.0018*on", "iw/2-(iw/zoom/2)"),
+                ("1.28-0.0016*on", "iw/3-(iw/zoom/2)"),
+                ("1.0+0.0020*on", "2*iw/3-(iw/zoom/2)"),
+                ("1.30-0.0018*on", "iw/2-(iw/zoom/2)"),
+            ]
+            shot_files = []
+            for sn in range(n_shots):
+                z, x = angles[sn % len(angles)]
+                sf = seg_dir / f"shotkb_{i:03d}_{sn}.mp4"
+                _run(["ffmpeg", "-y", "-loop", "1", "-i", str(src_img),
+                      "-t", f"{shot_d:.3f}",
+                      "-vf", (f"scale=4000:-1,zoompan=z='{z}':x='{x}':"
+                              f"y='ih/2-(ih/zoom/2)':d={shot_frames}:"
+                              f"s={W}x{H}:fps=30"),
+                      "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
+                      "-crf", "21", "-pix_fmt", "yuv420p", str(sf)])
+                shot_files.append(sf)
+            lst = seg_dir / f"shotkb_{i:03d}.txt"
+            lst.write_text("".join(f"file '{f}'\n" for f in shot_files))
+            _run(["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                  "-i", str(lst), "-i", str(audio),
+                  "-vf", (f"tpad=stop_mode=clone:stop_duration=1"
+                          f"{vf_extra}"),
+                  "-af", "apad", "-t", f"{dur:.3f}", "-r", "30",
+                  "-map", "0:v", "-map", "1:a",
+                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+                  "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                  "-pix_fmt", "yuv420p", str(out)])
+            for f in shot_files:
+                f.unlink(missing_ok=True)
+        else:
+            _run(["ffmpeg", "-y", "-loop", "1", "-i", str(src_img),
+                  "-i", str(audio), "-t", f"{dur:.3f}",
+                  "-vf", kb + vf_extra, "-af", "apad",
+                  "-map", "0:v", "-map", "1:a",
+                  "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
+                  "-crf", "21", "-c:a", "aac", "-b:a", "192k", "-ar", "44100",
+                  "-pix_fmt", "yuv420p", str(out)])
 
     # ---- emoji sticker pass ------------------------------------------------
     # a) segment reaction emoji: corner, bounces/wobbles for the whole beat

@@ -60,11 +60,15 @@ def pixabay_video(query: str, dest) -> bool:
     return False
 
 
-def fetch_broll(slug: str, query: str, index: int, portrait=False):
-    """Returns local path to an mp4 or None (editor falls back to card)."""
+def fetch_broll(slug: str, query: str, index: int, portrait=False,
+                variant: int = 0):
+    """Returns local path to an mp4 or None (editor falls back to card).
+    variant > 0 fetches ADDITIONAL different clips for the same segment
+    (multi-shot editing on long beats)."""
     d = WORK_DIR / slug / "broll"
     d.mkdir(parents=True, exist_ok=True)
-    dest = d / f"broll_{index:03d}.mp4"
+    suffix = f"_{variant}" if variant else ""
+    dest = d / f"broll_{index:03d}{suffix}.mp4"
     if dest.exists():
         return dest
     if pexels_video(query, dest, portrait) or pixabay_video(query, dest):

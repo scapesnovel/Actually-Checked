@@ -135,10 +135,43 @@ def gemini(prompt: str, system: str = "", json_mode: bool = False,
     raise RuntimeError(f"Gemini failed on all models: {last_err}")
 
 
-def gemini_json(prompt: str, system: str = "", temperature: float = 0.9):
-    txt = gemini(prompt, system=system, json_mode=True, temperature=temperature)
+def _parse_json_loose(txt: str):
+    """Parse model output as JSON, tolerating the usual LLM damage:
+    code fences, leading prose, trailing commas, truncated tails."""
     txt = re.sub(r"^```(json)?|```$", "", txt.strip(), flags=re.M).strip()
-    return json.loads(txt)
+    try:
+        return json.loads(txt)
+    except json.JSONDecodeError:
+        pass
+    # cut to the outermost JSON object/array (drops prose before/after)
+    for oc, cc in (("{", "}"), ("[", "]")):
+        s, e = txt.find(oc), txt.rfind(cc)
+        if s != -1 and e > s:
+            core = txt[s:e + 1]
+            # kill trailing commas before } or ]
+            core = re.sub(r",\s*([}\]])", r"\1", core)
+            try:
+                return json.loads(core)
+            except json.JSONDecodeError:
+                continue
+    raise json.JSONDecodeError("unrecoverable model JSON", txt[:200], 0)
+
+
+def gemini_json(prompt: str, system: str = "", temperature: float = 0.9,
+                max_attempts: int = 3):
+    """gemini() + robust JSON parse. Malformed JSON (truncation, trailing
+    commas, prose wrapping) is repaired when possible; otherwise the model
+    is re-asked (cooler temperature) instead of crashing the whole run."""
+    last_err = None
+    for attempt in range(max_attempts):
+        t = temperature if attempt == 0 else 0.3
+        txt = gemini(prompt, system=system, json_mode=True, temperature=t)
+        try:
+            return _parse_json_loose(txt)
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            print(f"      gemini_json: bad JSON (attempt {attempt+1}/{max_attempts}): {e}")
+    raise RuntimeError(f"gemini_json: unparseable after {max_attempts} attempts: {last_err}")
 
 
 def gemini_vision_json(prompt: str, image_path: str,
