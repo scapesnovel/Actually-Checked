@@ -1,17 +1,18 @@
 {
   "pillar_boost": {
-    "money": 1.1,
-    "scam": 1.3,
-    "viral": 1.2
+    "money": 1.45,
+    "scam": 1.35,
+    "viral": 1.15
   },
   "title_patterns_that_work": [
-    "Using parentheses for parenthetical hooks like '(Data Breakdown)', '(The Truth)', and '(I Checked The Data)'",
-    "Adding '#Shorts' to titles as short-form content consistently drives higher view counts (e.g., StubHub, Cashify, Sweatcoin)",
-    "Direct investigation questions starting with 'Is [Brand] Legit...' or 'Does [Brand] Actually Pay...'"
+    "Use urgent verification framing like 'I Checked If [Brand] Is A Scam... (The Truth)'",
+    "Target high-interest consumer apps and financial platforms with '#Shorts'",
+    "Include unexpected data points or payout numbers in titles to drive curiosity"
   ],
   "title_patterns_to_avoid": [
-    "Vague or purely descriptive titles without high-intent keywords like 'Legit', 'Scam', or 'Trust'",
-    "Long-form formats currently underperforming compared to high-engagement short-form investigative hooks"
+    "Generic long-form titles without clear value propositions or strong hooks",
+    "Vague brand explorations without immediate consumer protection angles",
+    "Titles lacking the '#Shorts' tag given the massive disparity in short-form view velocity"
   ],
-  "notes": "Short-form videos (indicated by #Shorts) significantly outperform long-form content in terms of view velocity, particularly when investigating popular apps, ticket platforms, and e-commerce services for legitimacy or payouts."
+  "notes": "Short-form content heavily outperforms long-form videos in initial view velocity, particularly when focusing on money-making apps, payout verifications, and scam investigations (e.g., Cashify, KashKick, and Rocket Money)."
 }
