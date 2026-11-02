@@ -400,5 +400,11 @@
     "topic": "Is Scribd breached? We checked the data leak claims",
     "kind": "short",
     "ts": 1793457735
+  },
+  {
+    "slug_root": "does seafoam really work?",
+    "topic": "Does Seafoam really work?",
+    "kind": "short",
+    "ts": 1793645405
   }
 ]
