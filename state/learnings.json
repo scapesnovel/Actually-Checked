@@ -1,18 +1,17 @@
 {
   "pillar_boost": {
-    "money": 1.45,
-    "scam": 1.35,
-    "viral": 1.15
+    "money": 1.2,
+    "scam": 1.5,
+    "viral": 1.1
   },
   "title_patterns_that_work": [
-    "Use urgent verification framing like 'I Checked If [Brand] Is A Scam... (The Truth)'",
-    "Target high-interest consumer apps and financial platforms with '#Shorts'",
-    "Include unexpected data points or payout numbers in titles to drive curiosity"
+    "Direct questions checking legitimacy (e.g., 'Is [Brand] Legit? I Investigated')",
+    "Using parenthetical urgency or hooks (e.g., '(I Checked The Data)', '(Before You Buy)')",
+    "Shorts format performing significantly better on average than long-form deep dives"
   ],
   "title_patterns_to_avoid": [
-    "Generic long-form titles without clear value propositions or strong hooks",
-    "Vague brand explorations without immediate consumer protection angles",
-    "Titles lacking the '#Shorts' tag given the massive disparity in short-form view velocity"
+    "Overly long or generic investigatory titles for long-form videos without a strong immediate hook",
+    "Vague branding or niche technical topics without a clear consumer-facing question"
   ],
-  "notes": "Short-form content heavily outperforms long-form videos in initial view velocity, particularly when focusing on money-making apps, payout verifications, and scam investigations (e.g., Cashify, KashKick, and Rocket Money)."
+  "notes": "Shorts consistently outperform long-form videos in view counts across almost all topics. Consumer-focused investigations regarding app legitimacy, payouts, and viral brands (like KashKick, Rocket Money, and Snapmint) yield the highest engagement, whereas longer investigative pieces suffer from very low visibility."
 }
