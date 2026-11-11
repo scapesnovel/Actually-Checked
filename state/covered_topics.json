@@ -448,5 +448,11 @@
     "topic": "Does TikTok actually pay you to scroll?",
     "kind": "short",
     "ts": 1794151873
+  },
+  {
+    "slug_root": "does h&r block tax",
+    "topic": "Does H&R Block tax software install a TLS backdoor?",
+    "kind": "long",
+    "ts": 1794404356
   }
 ]
