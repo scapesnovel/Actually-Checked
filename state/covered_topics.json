@@ -454,5 +454,11 @@
     "topic": "Does H&R Block tax software install a TLS backdoor?",
     "kind": "long",
     "ts": 1794404356
+  },
+  {
+    "slug_root": "should i trust kalshi",
+    "topic": "Should I trust Kalshi with my SSN?",
+    "kind": "long",
+    "ts": 1794578507
   }
 ]
