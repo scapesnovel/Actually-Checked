@@ -1,17 +1,17 @@
 {
   "pillar_boost": {
-    "money": 1.2,
-    "scam": 1.5,
-    "viral": 1.1
+    "money": 1.4,
+    "scam": 1.3,
+    "viral": 1.0
   },
   "title_patterns_that_work": [
-    "Direct questions checking legitimacy (e.g., 'Is [Brand] Legit? I Investigated')",
-    "Using parenthetical urgency or hooks (e.g., '(I Checked The Data)', '(Before You Buy)')",
-    "Shorts format performing significantly better on average than long-form deep dives"
+    "Direct questions about whether popular apps/services actually pay or work (e.g., KashKick, Rocket Money, Sweatcoin)",
+    "Use of parental/insider confirmation phrasing like 'I Checked the Data' or 'I Checked the Numbers'",
+    "Short-form content targeting high-intent consumer apps and financial services"
   ],
   "title_patterns_to_avoid": [
-    "Overly long or generic investigatory titles for long-form videos without a strong immediate hook",
-    "Vague branding or niche technical topics without a clear consumer-facing question"
+    "Long-form deep dives into niche or low-search topics that resulted in near-zero views",
+    "Generic titles lacking a specific brand, app, or high-curiosity hook"
   ],
-  "notes": "Shorts consistently outperform long-form videos in view counts across almost all topics. Consumer-focused investigations regarding app legitimacy, payouts, and viral brands (like KashKick, Rocket Money, and Snapmint) yield the highest engagement, whereas longer investigative pieces suffer from very low visibility."
+  "notes": "Shorts significantly outperform long-form videos in view velocity for this channel. Content focused on money-making apps, financial tools, and consumer scams (KashKick, Rocket Money, Sweatcoin) drives the highest engagement, whereas long-form video essays currently struggle to gain traction."
 }
