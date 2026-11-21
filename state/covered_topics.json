@@ -490,5 +490,11 @@
     "topic": "Does Kalshi actually pay out?",
     "kind": "long",
     "ts": 1795270502
+  },
+  {
+    "slug_root": "should i trust kiwi.com?",
+    "topic": "Should I trust Kiwi.com?",
+    "kind": "short",
+    "ts": 1795278061
   }
 ]
