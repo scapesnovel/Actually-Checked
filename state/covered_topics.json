@@ -496,5 +496,11 @@
     "topic": "Should I trust Kiwi.com?",
     "kind": "short",
     "ts": 1795278061
+  },
+  {
+    "slug_root": "should i trust g2a?",
+    "topic": "Should I trust G2A?",
+    "kind": "short",
+    "ts": 1795465795
   }
 ]
