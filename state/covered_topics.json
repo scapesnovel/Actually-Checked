@@ -514,5 +514,11 @@
     "topic": "Does Subvocal actually work?",
     "kind": "long",
     "ts": 1795625365
+  },
+  {
+    "slug_root": "is h&r block tax",
+    "topic": "Is H&R Block tax software installing a TLS backdoor?",
+    "kind": "short",
+    "ts": 1795632499
   }
 ]
