@@ -508,5 +508,11 @@
     "topic": "Is Temu a scam?",
     "kind": "short",
     "ts": 1795549426
+  },
+  {
+    "slug_root": "does subvocal actually work?",
+    "topic": "Does Subvocal actually work?",
+    "kind": "long",
+    "ts": 1795625365
   }
 ]
